@@ -1,0 +1,22 @@
+{
+ "posts": {
+  "pre:BT2627SWRLCP01SMIN": {
+   "kind": "avant_course",
+   "status": "pending",
+   "urls": [
+    "file:///home/runner/work/tourdepenalite-bot/tourdepenalite-bot/out/pre_BT2627SWRLCP01SMIN/s_01.jpg"
+   ],
+   "story_url": "file:///home/runner/work/tourdepenalite-bot/tourdepenalite-bot/out/pre_BT2627SWRLCP01SMIN/s_02.jpg",
+   "caption": "Individuel hommes 20 km à Kontiolahti, départ 16:15.\n\n#biathlon #biathlonfrance #coupedumondebiathlon #equipedefrance",
+   "created": "2026-11-26T14:30:00+01:00",
+   "expires": "2026-11-26T16:15:00+01:00",
+   "files": [
+    "out/pre_BT2627SWRLCP01SMIN/s_01.jpg",
+    "out/pre_BT2627SWRLCP01SMIN/s_02.jpg"
+   ]
+  }
+ },
+ "tg_offset": 0,
+ "snapshots": {},
+ "watch": {}
+}
