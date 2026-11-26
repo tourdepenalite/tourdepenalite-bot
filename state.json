@@ -14,6 +14,9 @@
     "out/pre_BT2627SWRLCP01SMIN/s_01.jpg",
     "out/pre_BT2627SWRLCP01SMIN/s_02.jpg"
    ]
+  },
+  "post:BT2627SWRLCP01SMIN": {
+   "status": "skipped"
   }
  },
  "tg_offset": 0,
