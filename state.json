@@ -2,7 +2,7 @@
  "posts": {
   "pre:BT2627SWRLCP01SMIN": {
    "kind": "avant_course",
-   "status": "pending",
+   "status": "expired",
    "urls": [
     "file:///home/runner/work/tourdepenalite-bot/tourdepenalite-bot/out/pre_BT2627SWRLCP01SMIN/s_01.jpg"
    ],
@@ -18,5 +18,9 @@
  },
  "tg_offset": 0,
  "snapshots": {},
- "watch": {}
+ "watch": {
+  "BT2627SWRLCP01SMIN": {
+   "sig": "e3f6d149f54f3cbaba92c47f8f666d62"
+  }
+ }
 }
