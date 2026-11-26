@@ -1,0 +1,21 @@
+name: refresh-instagram-token
+
+# UNIQUEMENT pour une app configuree avec l'ancienne "API setup with Instagram login"
+# (jeton graph.instagram.com, environ 60 jours). Les nouvelles apps (Unified Login) ont un
+# autre type de jeton : ce workflow ne s'applique pas, il est donc en lancement manuel.
+# Necessite un secret GH_PAT (jeton GitHub fine-grained, droit Secrets: write).
+on:
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Renouveler et enregistrer le jeton
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          NEW=$(curl -sf "https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${IG_ACCESS_TOKEN}" | jq -r .access_token)
+          if [ -z "$NEW" ] || [ "$NEW" = "null" ]; then echo "echec du renouvellement"; exit 1; fi
+          gh secret set IG_ACCESS_TOKEN --repo "${{ github.repository }}" --body "$NEW"

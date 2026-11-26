@@ -1,0 +1,7 @@
+out/
+.cache/
+__pycache__/
+tests/fixtures/
+.env
+tests/out/
+tests/sim_state.json

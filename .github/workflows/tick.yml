@@ -1,0 +1,70 @@
+name: tick
+
+on:
+  schedule:
+    # Toutes les 5 minutes, de novembre a mars. GitHub peut retarder les crons
+    # de plusieurs minutes aux heures chargees : ce n'est pas un minuteur precis.
+    - cron: "*/5 * * 11,12,1,2,3 *"
+  workflow_dispatch:
+    inputs:
+      now:
+        description: "Heure simulee (ex. 2026-12-17T11:30), vide = maintenant"
+        required: false
+
+concurrency:
+  group: tick
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Cache API IBU et navigateur
+        uses: actions/cache@v4
+        with:
+          path: |
+            .cache/ibu
+            ~/.cache/ms-playwright
+          key: tdp-${{ github.run_id }}
+          restore-keys: tdp-
+      - run: pip install -r requirements.txt
+      - run: python -m playwright install --with-deps chromium
+      - name: Police emoji (drapeaux)
+        run: sudo apt-get install -y fonts-noto-color-emoji
+      - name: Run
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          TDP_REQUIRE_APPROVAL: ${{ vars.TDP_REQUIRE_APPROVAL || '1' }}
+          TDP_DRY_RUN: ${{ vars.TDP_DRY_RUN || '0' }}
+        run: |
+          if [ -n "${{ inputs.now }}" ]; then python -m tdp.tick --now "${{ inputs.now }}"; else python -m tdp.tick; fi
+      - name: Visuels produits (telechargeables depuis la page du run)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visuels
+          path: out/
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Sauvegarde de l'etat
+        if: always()
+        run: |
+          git config user.name "tdp-bot"
+          git config user.email "tdp-bot@users.noreply.github.com"
+          git add state.json
+          git diff --cached --quiet || (git commit -m "state $(date -u +%FT%TZ)" && git push)
