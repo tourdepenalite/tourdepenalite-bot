@@ -1,0 +1,71 @@
+"""Reglages du bot Tour de penalite. Tout ce qui est modifiable a la main est ici."""
+import os
+from zoneinfo import ZoneInfo
+
+TZ = ZoneInfo("Europe/Paris")
+HOME_NAT = "FRA"            # pays mis en avant
+WC_LEVEL = 1                # 1 = Coupe du monde IBU
+
+# Validation avant publication. False = publication directe (prevu a partir de janvier).
+REQUIRE_APPROVAL = os.environ.get("TDP_REQUIRE_APPROVAL", "1") == "1"
+# Simulation : aucun appel a Instagram, Telegram ou au stockage, images gardees en local.
+DRY_RUN = os.environ.get("TDP_DRY_RUN", "0") == "1"
+# Filigrane "MAQUETTE" sur les visuels (utile pour les tests).
+WATERMARK = os.environ.get("TDP_WATERMARK", "0") == "1"
+
+# Grille editoriale (heure de Paris)
+SCHEDULE = {
+    "programme": {"weekday": 2, "hour": 9},    # mercredi 9h
+    "classement": {"weekday": 2, "hour": 15},  # mercredi 15h
+    "pre_race_minutes": 120,                    # 2 h avant le depart
+    "bilan": {"weekday": 0, "hour": 9},        # lundi 9h
+    "bleus": {"weekday": 1, "hour": 9},        # mardi 9h
+}
+MAX_CAROUSEL = 10            # limite Meta (doc officielle)
+MAX_FR_SLIDES = 6            # au-dela, les Francais restants vont dans une slide tableau
+FAVORITES_FORM_RACES = 5     # nb de courses prises en compte pour la forme
+
+# Regles de format (connaissance generale du biathlon, a relire)
+DISCIPLINES = {
+    "SP": {"fr": "Sprint", "laps": 3, "stages": ["Couché", "Debout"], "penalty": "1 tour de 150 m par faute", "penalty_s": 25},
+    "PU": {"fr": "Poursuite", "laps": 5, "stages": ["Couché", "Couché", "Debout", "Debout"], "penalty": "1 tour de 150 m par faute", "penalty_s": 25},
+    "MS": {"fr": "Mass start", "laps": 5, "stages": ["Couché", "Couché", "Debout", "Debout"], "penalty": "1 tour de 150 m par faute", "penalty_s": 25},
+    "IN": {"fr": "Individuel", "laps": 5, "stages": ["Couché", "Debout", "Couché", "Debout"], "penalty": "1 min ajoutée par faute", "penalty_s": 60},
+    "SI": {"fr": "Individuel court", "laps": 5, "stages": ["Couché", "Debout", "Couché", "Debout"], "penalty": "45 s ajoutées par faute", "penalty_s": 45},
+    "RL": {"fr": "Relais", "relay": True},
+    "MR": {"fr": "Relais mixte", "relay": True},
+    "SR": {"fr": "Relais mixte simple", "relay": True},
+}
+CATEGORIES = {"SM": "hommes", "SW": "femmes", "MX": "mixte"}
+
+# Fiches sites : a completer une fois par saison. lat/lon servent a la meteo (open-meteo).
+# Laisser profile a None tant que l'info n'est pas verifiee : la ligne n'apparait pas.
+SITES = {
+    "kontiolahti": {"name": "Kontiolahti", "lat": 62.77, "lon": 29.85, "altitude": None, "profile": None},
+    "hochfilzen": {"name": "Hochfilzen", "lat": 47.47, "lon": 12.62, "altitude": None, "profile": None},
+    "grand-bornand": {"name": "Le Grand-Bornand", "lat": 45.94, "lon": 6.43, "altitude": None, "profile": None},
+    "pokljuka": {"name": "Pokljuka", "lat": 46.33, "lon": 13.93, "altitude": None, "profile": None},
+    "ruhpolding": {"name": "Ruhpolding", "lat": 47.76, "lon": 12.64, "altitude": None, "profile": None},
+    "antholz": {"name": "Antholz-Anterselva", "lat": 46.88, "lon": 12.17, "altitude": None, "profile": None},
+    "nove mesto": {"name": "Nové Město", "lat": 49.56, "lon": 16.08, "altitude": None, "profile": None},
+    "otep": {"name": "Otepää", "lat": 58.05, "lon": 26.47, "altitude": None, "profile": None},
+    "oberhof": {"name": "Oberhof", "lat": 50.70, "lon": 10.73, "altitude": None, "profile": None},
+    "oslo": {"name": "Oslo-Holmenkollen", "lat": 59.96, "lon": 10.67, "altitude": None, "profile": None},
+    "ostersund": {"name": "Östersund", "lat": 63.17, "lon": 14.64, "altitude": None, "profile": None},
+}
+
+# Cles et services (secrets GitHub)
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
+CLAUDE_MODEL = os.environ.get("TDP_CLAUDE_MODEL", "claude-sonnet-5-5")
+IG_USER_ID = os.environ.get("IG_USER_ID")
+IG_ACCESS_TOKEN = os.environ.get("IG_ACCESS_TOKEN")
+IG_API_VERSION = os.environ.get("IG_API_VERSION", "v27.0")
+# Les apps Meta creees recemment passent par "Instagram API with Unified Login" (graph.facebook.com).
+# Une ancienne app configuree avec Instagram Login utiliserait graph.instagram.com.
+IG_GRAPH_HOST = os.environ.get("IG_GRAPH_HOST", "graph.facebook.com")
+IG_MARK_AI = os.environ.get("TDP_IG_MARK_AI", "0") == "1"  # parametre is_ai_generated
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
+SUPABASE_BUCKET = os.environ.get("SUPABASE_BUCKET", "tdp-posts")

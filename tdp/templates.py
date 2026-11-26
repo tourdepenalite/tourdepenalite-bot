@@ -1,0 +1,404 @@
+"""Gabarits HTML (1080x1350 pour le fil, 1080x1920 pour les stories)."""
+from __future__ import annotations
+
+from html import escape
+
+from . import config
+from .stats import fmt_gap, fmt_time, ordinal, ordinal_f
+
+O, GREY, MUTED, FR_BG, ROW = "#ff5a1f", "#9aa4b2", "#6b7686", "#16243f", "#151b24"
+
+CSS = """
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:1080px;background:#0d1117;color:#f2f4f7;font-family:'Inter Display','Inter',sans-serif;position:relative;overflow:hidden}
+.top{position:absolute;top:56px;left:72px;right:72px;display:flex;justify-content:space-between;align-items:center}
+.brand{font-weight:800;letter-spacing:.14em;font-size:26px;display:flex;align-items:center;gap:14px}
+.dot{width:26px;height:26px;border-radius:50%;border:5px solid #ff5a1f;position:relative}
+.dot:after{content:'';position:absolute;inset:4px;border-radius:50%;background:#ff5a1f}
+.hd{text-align:right;font-size:22px;color:#9aa4b2;font-weight:600;letter-spacing:.08em;line-height:1.4;text-transform:uppercase}
+.hd b{color:#f2f4f7}
+.foot{position:absolute;bottom:52px;left:72px;right:72px;display:flex;justify-content:space-between;font-size:22px;color:#6b7686;font-weight:600}
+.mock{position:absolute;top:640px;left:-80px;transform:rotate(-30deg);font-size:64px;font-weight:900;color:rgba(255,255,255,.05);white-space:nowrap;letter-spacing:.1em}
+.nat{display:inline-block;font-size:20px;font-weight:800;padding:4px 10px;border-radius:6px;background:#1f2733;color:#c5ccd6;letter-spacing:.06em}
+.nat.FRA{background:#1d3fa8;color:#fff}
+.fr{color:#7da2ff}
+.t{display:inline-block;border-radius:50%;margin-right:6px;border:3px solid #f2f4f7;background:#f2f4f7}
+.t.miss{background:transparent;border-color:#ff5a1f}
+.k{font-size:30px;color:#ff5a1f;font-weight:800;letter-spacing:.1em}
+.h{font-weight:900;line-height:1.04;margin-top:10px}
+.num{font-variant-numeric:tabular-nums}
+"""
+HOME = config.HOME_NAT
+NAT_FR = {"NOR": "Norvège", "FRA": "France", "SWE": "Suède", "GER": "Allemagne", "ITA": "Italie", "SUI": "Suisse",
+          "AUT": "Autriche", "FIN": "Finlande", "CZE": "Tchéquie", "USA": "États-Unis", "UKR": "Ukraine", "SLO": "Slovénie",
+          "EST": "Estonie", "LAT": "Lettonie", "LTU": "Lituanie", "POL": "Pologne", "SVK": "Slovaquie", "BEL": "Belgique",
+          "CAN": "Canada", "BUL": "Bulgarie", "KAZ": "Kazakhstan", "JPN": "Japon", "CHN": "Chine", "KOR": "Corée du Sud"}
+
+
+def e(x) -> str:
+    return escape(str(x if x is not None else ""))
+
+
+def page(body: str, h1: str, h2: str, idx: int = 0, total: int = 0, height: int = 1350) -> str:
+    count = f" · {idx}/{total}" if total else ""
+    mock = "<div class='mock'>MAQUETTE · DONNÉES FICTIVES</div>" if config.WATERMARK else ""
+    return f"""<html><head><meta charset='utf-8'><style>{CSS}body{{height:{height}px}}</style></head><body>
+<div class='top'><div class='brand'><span class='dot'></span>TOUR DE PÉNALITÉ</div><div class='hd'><b>{e(h1)}</b><br>{e(h2)}</div></div>
+{body}{mock}
+<div class='foot'><span>@tourdepenalite</span><span>Données : IBU{count}</span></div></body></html>"""
+
+
+def kicker(t, color=O):
+    return f"<div class='k' style='color:{color}'>{e(t)}</div>"
+
+
+def title(t, size=72):
+    return f"<div class='h' style='font-size:{size}px'>{e(t)}</div>"
+
+
+# Codes CIO utilises par l'IBU -> codes ISO (pour les drapeaux emoji)
+IOC_ISO = {"NOR": "NO", "FRA": "FR", "SWE": "SE", "GER": "DE", "ITA": "IT", "SUI": "CH", "AUT": "AT", "FIN": "FI",
+           "CZE": "CZ", "USA": "US", "UKR": "UA", "SLO": "SI", "EST": "EE", "LAT": "LV", "LTU": "LT", "POL": "PL",
+           "SVK": "SK", "BEL": "BE", "CAN": "CA", "BUL": "BG", "KAZ": "KZ", "JPN": "JP", "CHN": "CN", "KOR": "KR",
+           "CRO": "HR", "ROU": "RO", "MDA": "MD", "NED": "NL", "GBR": "GB", "AUS": "AU", "ESP": "ES", "DEN": "DK",
+           "HUN": "HU", "SRB": "RS", "MGL": "MN", "GRE": "GR", "IRL": "IE", "ISL": "IS", "BRA": "BR", "ARG": "AR",
+           "CHI": "CL", "MEX": "MX", "BIH": "BA", "MKD": "MK", "MNE": "ME", "AND": "AD", "LIE": "LI", "BLR": "BY",
+           "RUS": "RU", "GEO": "GE", "ARM": "AM", "TUR": "TR", "ISR": "IL", "IND": "IN", "NZL": "NZ", "RSA": "ZA"}
+
+
+def flag(n: str) -> str:
+    iso = IOC_ISO.get((n or "").upper())
+    if not iso:
+        return ""
+    return "".join(chr(0x1F1E6 + ord(c) - ord("A")) for c in iso)
+
+
+def nat(n, size=40):
+    f = flag(n)
+    if not f:  # pays inconnu : on garde le code
+        return f"<span class='nat {e(n)}'>{e(n)}</span>"
+    return f"<span class='flag' style='font-size:{size}px;line-height:1;font-family:\"Noto Color Emoji\",sans-serif' title='{e(n)}'>{f}</span>"
+
+
+def shots(misses: list[int], size=20, gap=18, margin=6) -> str:
+    groups = []
+    bw = 3 if size >= 14 else 2
+    for m in misses:
+        groups.append("".join(f"<span class='t{' miss' if i >= 5 - m else ''}' style='width:{size}px;height:{size}px;margin-right:{margin}px;border-width:{bw}px'></span>" for i in range(5)))
+    sep = f"<span style='display:inline-block;width:{gap}px'></span>"
+    return f"<span style='display:inline-flex;white-space:nowrap;align-items:center'>{sep.join(groups)}</span>"
+
+
+def legend():
+    return (f"<div style='font-size:22px;color:{MUTED};margin-top:14px;display:flex;gap:28px;align-items:center'>"
+            f"<span><span class='t' style='width:18px;height:18px'></span>cible blanchie</span>"
+            f"<span><span class='t miss' style='width:18px;height:18px'></span>faute</span>"
+            f"<span>Ordre des fautes dans la série non publié</span></div>")
+
+
+def _ord(meta, n):
+    return ordinal_f(n) if meta.get("cat") == "SW" else ordinal(n)
+
+
+def a_site(site: str) -> str:
+    """'à Kontiolahti', 'au Grand-Bornand' (sans coupure dans le nom)."""
+    for art, rep in (("Le ", "au "), ("La ", "à la "), ("Les ", "aux ")):
+        if site.startswith(art):
+            return rep + f"<span style='white-space:nowrap'>{e(site[len(art):])}</span>"
+    return "à " + f"<span style='white-space:nowrap'>{e(site)}</span>"
+
+
+def apres_site(site: str) -> str:
+    for art in ("Le ", "La ", "Les "):
+        if site.startswith(art):
+            return art.lower() + site[len(art):]
+    return site
+
+
+def a_site_txt(site: str) -> str:
+    for art, rep in (("Le ", "au "), ("La ", "à la "), ("Les ", "aux ")):
+        if site.startswith(art):
+            return rep + site[len(art):]
+    return "à " + site
+
+
+def _split_name(name: str):
+    parts = name.split(" ", 1)
+    return (parts[0], parts[1]) if len(parts) == 2 else ("", name)
+
+
+# ================================================================ APRES COURSE
+
+def results_carousel(meta: dict, rows: list[dict], headline: str, stat: dict | None) -> list[str]:
+    fin = [r for r in rows if r["rank"]]
+    home = [r for r in fin if r["nat"] == HOME]
+    solo = home[: config.MAX_FR_SLIDES]
+    rest = home[config.MAX_FR_SLIDES:]
+    total = 2 + (1 if stat else 0) + len(solo) + (1 if rest else 0)
+    total = min(total, config.MAX_CAROUSEL)
+    h1, h2 = meta["site"], meta["label"]
+    slides = [_podium(meta, fin, headline, h1, h2, total), _top10(meta, fin, h1, h2, total)]
+    if stat:
+        slides.append(_stat(stat, h1, h2, len(slides) + 1, total))
+    for i, r in enumerate(solo):
+        if len(slides) >= config.MAX_CAROUSEL - (1 if rest else 0):
+            break
+        slides.append(_athlete(meta, r, i + 1, len(home), h1, h2, len(slides) + 1, total))
+    if rest and len(slides) < config.MAX_CAROUSEL:
+        slides.append(_home_table(meta, rest, h1, h2, len(slides) + 1, total))
+    return slides
+
+
+def _podium(meta, fin, headline, h1, h2, total):
+    p = fin[:3]
+    order = [x for x in (p[1:2] + p[0:1] + p[2:3])]
+    heights = {1: 380, 2: 290, 3: 220}
+    cols = ""
+    for r in order:
+        cls = "fr" if r["nat"] == HOME else ""
+        val = fmt_time(r["time_s"]) if r["rank"] == 1 else fmt_gap(r["behind_s"])
+        bg = O if r["rank"] == 1 else "#1f2733"
+        fg = "#0d1117" if r["rank"] == 1 else "#f2f4f7"
+        cols += f"""<div style='flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end'>
+<div style='font-size:28px;color:{GREY};font-weight:600'>{e(r['first'])}</div>
+<div class='{cls}' style='font-size:{44 if len(r['last'])<12 else 34}px;font-weight:900;text-transform:uppercase;margin:2px 0 12px;text-align:center;line-height:1'>{e(r['last'])}</div>
+{nat(r['nat'], 48)}<div class='num' style='font-size:26px;margin:14px 0 6px;font-weight:700'>{e(val)}</div>
+<div style='margin-bottom:22px'>{shots(r['misses'], 18) if len(r['misses'])<=2 else shots(r['misses'], 10, 9, 3)}</div>
+<div style='width:100%;height:{heights.get(r['rank'],200)}px;background:{bg};border-radius:18px 18px 0 0;display:flex;justify-content:center;padding-top:24px;font-size:120px;font-weight:900;color:{fg}'>{r['rank']}</div></div>"""
+    best = next((r for r in fin if r["nat"] == HOME), None)
+    band = ""
+    if best:
+        band = f"""<div style='position:absolute;top:1135px;left:72px;right:72px;background:{FR_BG};border-radius:16px;padding:22px 28px;display:flex;justify-content:space-between;align-items:center;font-size:30px;font-weight:700'>
+<span>🇫🇷&nbsp; {'Meilleure Française' if meta['cat']=='SW' else 'Meilleur Français'} : <span class='fr'>{e(best['name'])}</span></span><span class='num'>{_ord(meta, best['rank'])}{(' · ' + fmt_gap(best['behind_s'])) if best['rank']>1 else ''}</span></div>"""
+    body = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker('LE PODIUM')}{title(headline, 76 if len(headline) < 40 else 62)}</div>
+<div style='position:absolute;top:470px;left:72px;right:72px;height:640px;display:flex;gap:22px;align-items:flex-end'>{cols}</div>{band}"""
+    return page(body, h1, h2, 1, total)
+
+
+def _top10(meta, fin, h1, h2, total):
+    rows = ""
+    for r in fin[:10]:
+        fr = r["nat"] == HOME
+        val = fmt_time(r["time_s"]) if r["rank"] == 1 else fmt_gap(r["behind_s"])
+        rows += f"""<div style='display:flex;align-items:center;padding:0 24px;height:74px;border-radius:12px;margin-bottom:8px;background:{FR_BG if fr else ROW}'>
+<div style='width:70px;font-size:34px;font-weight:900;color:{O if r['rank']<=3 else GREY}'>{r['rank']}</div>
+<div class='{'fr' if fr else ''}' style='flex:1;font-size:32px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>{e(r['name'])}</div>
+<span style='margin-right:24px'>{nat(r['nat'])}</span><div style='width:{250 if len(r['misses'])<=2 else 290}px'>{shots(r['misses'], 17) if len(r['misses'])<=2 else shots(r['misses'], 11, 10, 3)}</div>
+<div class='num' style='width:150px;text-align:right;font-size:30px;font-weight:700'>{e(val)}</div></div>"""
+    n_home = len([r for r in fin[:10] if r["nat"] == HOME])
+    t = {0: "Aucun Bleu dans le top 10", 1: "1 Bleu dans le top 10"}.get(n_home, f"{n_home} Bleus dans le top 10")
+    if meta["cat"] == "SW":
+        t = {0: "Aucune Bleue dans le top 10", 1: "1 Bleue dans le top 10"}.get(n_home, f"{n_home} Bleues dans le top 10")
+    body = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker('LE TOP 10')}{title(t, 64)}</div>
+<div style='position:absolute;top:360px;left:72px;right:72px'>{rows}{legend()}</div>"""
+    return page(body, h1, h2, 2, total)
+
+
+def _stat(stat, h1, h2, idx, total):
+    big = stat["big"]
+    size = 300 if len(big) <= 3 else (200 if len(big) <= 5 else 150)
+    body = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker('LA STAT DU JOUR')}</div>
+<div style='position:absolute;top:330px;left:72px;right:72px'>
+<div style='font-size:{size}px;font-weight:900;line-height:.9;color:{O};letter-spacing:-.03em'>{e(big)}</div>
+<div style='font-size:68px;font-weight:900;line-height:1.05;margin-top:30px'>{e(stat['headline'])}</div>
+<div style='font-size:36px;color:{GREY};margin-top:30px;line-height:1.35;font-weight:500'>{e(stat['detail'])}</div></div>"""
+    return page(body, h1, h2, idx, total)
+
+
+def _athlete(meta, r, i, n, h1, h2, idx, total):
+    stages = config.DISCIPLINES.get(meta["disc"], {}).get("stages", [])
+    bouts = ""
+    for k, m in enumerate(r["misses"]):
+        label = stages[k] if k < len(stages) else f"Tir {k+1}"
+        bouts += f"""<div style='display:flex;justify-content:space-between;align-items:center;padding:{18 if len(r['misses'])>2 else 22}px 0;border-top:1px solid #222b37'>
+<span style='font-size:30px;font-weight:700;width:200px'>{e(label)}</span><span>{shots([m], 40)}</span>
+<span style='font-size:30px;font-weight:800;width:90px;text-align:right;color:{O if m else '#f2f4f7'}'>{5-m}/5</span></div>"""
+
+    def card(t, v, rk):
+        col = O if rk and rk <= 3 else "#c5ccd6"
+        return f"""<div style='flex:1;background:{ROW};border-radius:18px;padding:28px'>
+<div style='font-size:24px;color:{GREY};font-weight:700;letter-spacing:.08em'>{t}</div>
+<div class='num' style='font-size:56px;font-weight:900;margin-top:8px'>{e(v)}</div>
+<div style='font-size:28px;margin-top:6px;font-weight:700;color:{col}'>{ordinal(rk) if rk else '-'} temps</div></div>"""
+    ski = r["ski"] or (None, None)
+    rng = r["range"] or (None, None)
+    sht = r["shoot"] or (None, None)
+    hits = r["shots"] - (r["misses_total"] or 0)
+    label = "LES BLEUES" if meta["cat"] == "SW" else "LES BLEUS"
+    rank_txt = _ord(meta, r["rank"])
+    num, suf = (rank_txt[:-2], rank_txt[-2:]) if rank_txt.endswith(("er", "re")) else (rank_txt[:-1], rank_txt[-1:])
+    body = f"""<div style='position:absolute;top:190px;left:72px;right:72px;display:flex;justify-content:space-between;align-items:flex-end'>
+<div>{kicker(f'🇫🇷 {label} · {i}/{n}', '#7da2ff')}<div style='font-size:34px;color:{GREY};font-weight:600;margin-top:16px'>{e(r['first'])}</div>
+<div style='font-size:{92 if len(r['last'])<11 else 70}px;font-weight:900;text-transform:uppercase;line-height:1'>{e(r['last'])}</div></div>
+<div style='text-align:right'><div style='font-size:170px;font-weight:900;line-height:.85;color:{O}'>{num}<span style='font-size:80px'>{suf}</span></div>
+<div class='num' style='font-size:32px;font-weight:700;color:{GREY};margin-top:10px'>{e(fmt_gap(r['behind_s']) if r['rank']>1 else fmt_time(r['time_s']))}</div></div></div>
+<div style='position:absolute;top:520px;left:72px;right:72px;display:flex;gap:20px'>{card('SKI', fmt_time(ski[0]), ski[1])}{card('PAS DE TIR', fmt_time(rng[0]), rng[1])}</div>
+<div style='position:absolute;top:790px;left:72px;right:72px'>
+<div style='display:flex;justify-content:space-between;font-size:24px;color:{GREY};font-weight:700;letter-spacing:.08em;margin-bottom:10px'>
+<span>TIR</span><span>Temps de tir : {e(fmt_time(sht[0]))} ({e(ordinal(sht[1]) if sht[1] else '-')})</span></div>{bouts}
+<div style='display:flex;justify-content:space-between;align-items:center;padding:20px 0;border-top:1px solid #222b37'>
+<span style='font-size:30px;font-weight:700'>Total</span><span style='font-size:40px;font-weight:900'>{hits}/{r['shots']}</span></div></div>"""
+    return page(body, h1, h2, idx, total)
+
+
+def _home_table(meta, rest, h1, h2, idx, total):
+    rows = "".join(f"""<div style='display:flex;align-items:center;padding:22px 0;border-top:1px solid #222b37;font-size:32px'>
+<span style='width:110px;font-weight:900;color:{GREY}'>{_ord(meta, r['rank'])}</span><span class='fr' style='flex:1;font-weight:800'>{e(r['name'])}</span>
+<span style='width:300px'>{shots(r['misses'],14,12,4) if len(r['misses'])<=2 else shots(r['misses'],10,8,3)}</span><span class='num' style='width:160px;text-align:right'>{e(fmt_gap(r['behind_s']))}</span></div>""" for r in rest)
+    body = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker('LES AUTRES BLEUS' if meta['cat']!='SW' else 'LES AUTRES BLEUES', '#7da2ff')}{title('Le reste de l’équipe', 64)}</div>
+<div style='position:absolute;top:380px;left:72px;right:72px'>{rows}</div>"""
+    return page(body, h1, h2, idx, total)
+
+
+def relay_image(meta: dict, teams: list[dict], headline: str) -> list[str]:
+    fin = [t for t in teams if t["rank"]]
+    rows = ""
+    for t in fin[:8]:
+        fr = t["nat"] == HOME
+        val = fmt_time(t["time_s"]) if t["rank"] == 1 else fmt_gap(t["behind_s"])
+        rows += f"""<div style='display:flex;align-items:center;padding:0 26px;height:78px;border-radius:14px;margin-bottom:9px;background:{FR_BG if fr else ('#2a1a12' if t['rank']==1 else ROW)}'>
+<div style='width:80px;font-size:38px;font-weight:900;color:{O if t['rank']<=3 else GREY}'>{t['rank']}</div>
+<div class='{'fr' if fr else ''}' style='flex:1;font-size:34px;font-weight:800;display:flex;align-items:center;gap:18px'>{nat(t['nat'], 38)}{e(NAT_FR.get(t['nat'], t['nat']))}</div>
+<div style='width:260px;font-size:24px;color:{GREY}'>{t['penalties']} tour(s) · {t['spares']} pioche(s)</div>
+<div class='num' style='width:170px;text-align:right;font-size:32px;font-weight:700'>{e(val)}</div></div>"""
+    home = next((t for t in fin if t["nat"] == HOME), None)
+    band = f"<div style='font-size:34px;font-weight:800;margin-top:24px' class='fr'>🇫🇷 France : {ordinal_f(home['rank'])}</div>" if home else ""
+    body = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker('RÉSULTAT')}{title(headline, 68 if len(headline) < 34 else 56)}</div>
+<div style='position:absolute;top:400px;left:72px;right:72px'>{rows}{band}</div>"""
+    return [page(body, meta["site"], meta["label"])]
+
+
+# ================================================================ AVANT COURSE
+
+def pre_race(meta: dict, headline: str, lines: list[tuple[str, str]], favs: list[dict], key_point: str) -> tuple[str, str]:
+    def line(k, v):
+        return f"<div style='display:flex;justify-content:space-between;padding:22px 0;border-top:1px solid #222b37;font-size:32px'><span style='color:{GREY};font-weight:600'>{e(k)}</span><span style='font-weight:800'>{e(v)}</span></div>"
+    fav = ""
+    for i, r in enumerate(favs):
+        fav += f"<div style='display:flex;align-items:center;gap:22px;padding:14px 0'><span style='font-size:44px;font-weight:900;color:{O};width:40px'>{i+1}</span><div style='flex:1'><div class='{'fr' if r['nat']==HOME else ''}' style='font-size:34px;font-weight:800'>{e(r['name'])}</div><div style='font-size:24px;color:{GREY}'>{e(r['why'])}</div></div>{nat(r['nat'])}</div>"
+    hhmm = meta["start"].strftime("%H:%M") if meta["start"] else ""
+    feed = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker(f"AUJOURD'HUI · {hhmm}")}{title(meta['label'], 72 if len(meta['label'])<26 else 58)}</div>
+<div style='position:absolute;top:400px;left:72px;right:72px'>{''.join(line(k, v) for k, v in lines)}
+<div style='margin-top:36px'>{kicker('NOS FAVORIS' if meta['cat']!='SW' else 'NOS FAVORITES')}{fav}</div>
+<div style='font-size:22px;color:{MUTED};margin-top:6px'>Calcul : résultats et tir sur les dernières courses</div></div>"""
+    opts = "".join(f"<div style='background:{FR_BG if r['nat']==HOME else '#1f2733'};border-radius:16px;padding:26px 30px;font-size:40px;font-weight:800'>{e(r['name'])}</div>" for r in favs[:2])
+    opts += "<div style='background:#1f2733;border-radius:16px;padding:26px 30px;font-size:40px;font-weight:800'>Quelqu’un d’autre</div>"
+    story = f"""<div style='position:absolute;top:260px;left:72px;right:72px'>{kicker('DANS 2 HEURES')}
+<div style='font-size:100px;font-weight:900;line-height:1;margin-top:20px'>{e(meta['label'])}</div>
+<div style='font-size:44px;color:{GREY};font-weight:700;margin-top:20px'>{hhmm} · {e(meta['site'])}</div></div>
+<div style='position:absolute;top:820px;left:72px;right:72px;background:{ROW};border-radius:24px;padding:44px'>
+<div style='font-size:30px;color:{GREY};font-weight:800;letter-spacing:.08em'>QUI GAGNE ?</div>
+<div style='display:flex;flex-direction:column;gap:18px;margin-top:26px'>{opts}</div></div>
+<div style='position:absolute;top:1500px;left:72px;right:72px;font-size:38px;font-weight:700;color:#c5ccd6;line-height:1.4'>{e(key_point)}</div>"""
+    return page(feed, meta["site"], meta["label"]), page(story, meta["site"], "Story avant course", height=1920)
+
+
+# ================================================================ MERCREDI
+
+def programme(site: str, days: list[tuple[str, list[tuple[str, str]]]], n_races: int, n_days: int, enjeux: list[tuple[str, str, str]]) -> list[str]:
+    rows = ""
+    for day, races in days:
+        items = "".join(f"<div style='display:flex;gap:26px;font-size:{32 if len(days)<=4 else 28}px;font-weight:600;padding:5px 0'><span class='num' style='width:110px;color:{O};font-weight:800'>{e(h)}</span><span>{e(r)}</span></div>" for h, r in races)
+        rows += f"<div style='padding:{20 if len(days)<=4 else 12}px 0;border-top:1px solid #222b37'><div style='font-size:24px;color:{GREY};font-weight:800;letter-spacing:.1em;margin-bottom:6px'>{e(day.upper())}</div>{items}</div>"
+    site_nb = a_site(site)
+    total = 2 if enjeux else 1
+    s1 = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker('LE PROGRAMME')}<div class='h' style='font-size:70px'>{n_races} courses, {n_days} jours {site_nb}</div></div>
+<div style='position:absolute;top:500px;left:72px;right:72px'>{rows}<div style='font-size:24px;color:{MUTED};margin-top:16px'>Heures françaises</div></div>"""
+    slides = [page(s1, site, "Étape de Coupe du monde", 1, total)]
+    if enjeux:
+        cards = "".join(f"<div style='background:{ROW};border-radius:18px;padding:30px 32px;margin-bottom:18px'><div style='font-size:24px;color:{GREY};font-weight:800;letter-spacing:.08em'>{e(k)}</div><div style='font-size:46px;font-weight:900;margin-top:6px'>{e(v)}</div><div style='font-size:28px;color:#c5ccd6;margin-top:6px'>{e(sub)}</div></div>" for k, v, sub in enjeux)
+        s2 = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker('LES ENJEUX')}{title("Ce qu'il faut suivre ce week-end", 64)}</div>
+<div style='position:absolute;top:420px;left:72px;right:72px'>{cards}</div>"""
+        slides.append(page(s2, site, "Étape de Coupe du monde", 2, total))
+    return slides
+
+
+def standings_slide(label: str, rows: list[dict], headline: str, h2: str, idx: int, total: int, note: str = "", young: bool = False) -> str:
+    out = ""
+    lead = rows[0]["score"] if rows else 0
+    for r in rows[:10]:
+        fr = r["nat"] == HOME
+        gap = "" if r is rows[0] else ("=" if lead == r["score"] else f"-{lead - r['score']}")
+        rank = r.get("young_rank", r["rank"])
+        extra = f"<span style='font-size:22px;color:{MUTED};margin-left:10px'>({r['rank']}e)</span>" if young else ""
+        out += f"""<div style='display:flex;align-items:center;padding:0 24px;height:66px;border-radius:12px;margin-bottom:7px;background:{FR_BG if fr else ('#2a1a12' if rank==1 else ROW)}'>
+<div style='width:66px;font-size:32px;font-weight:900;color:{O if rank<=3 else GREY}'>{rank}</div>
+<div class='{'fr' if fr else ''}' style='flex:1;font-size:31px;font-weight:700;white-space:nowrap'>{e(r['name'])}{extra}</div>
+{nat(r['nat'])}<div class='num' style='width:110px;text-align:right;font-size:30px;font-weight:800'>{r['score']}</div>
+<div class='num' style='width:110px;text-align:right;font-size:24px;color:{MUTED}'>{gap}</div></div>"""
+    body = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker(label)}{title(headline, 60)}</div>
+<div style='position:absolute;top:400px;left:72px;right:72px'>
+<div style='display:flex;justify-content:flex-end;padding:0 24px 10px;font-size:20px;color:{MUTED};font-weight:700;letter-spacing:.08em'><span style='width:110px;text-align:right'>PTS</span><span style='width:110px;text-align:right'>ÉCART</span></div>{out}
+<div style='font-size:24px;color:{MUTED};margin-top:12px'>{e(note)}</div></div>"""
+    return page(body, "Classement général", h2, idx, total)
+
+
+# ================================================================ LUNDI
+
+def bilan(site: str, headline: str, figures: list[tuple[str, str]], mv: dict[str, dict]) -> list[str]:
+    total = 1 + len(mv)
+    grid = "".join(f"<div style='background:{ROW};border-radius:18px;padding:30px'><div style='font-size:84px;font-weight:900;color:{O}'>{e(v)}</div><div style='font-size:28px;color:#c5ccd6;font-weight:600'>{e(k)}</div></div>" for v, k in figures[:4])
+    s1 = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker('LE BILAN')}{title(headline, 80 if len(headline)<34 else 64)}</div>
+<div style='position:absolute;top:540px;left:72px;right:72px;display:grid;grid-template-columns:1fr 1fr;gap:20px'>{grid}</div>"""
+    slides = [page(s1, site, "Bilan de l'étape", 1, total)]
+    for i, (cat, m) in enumerate(mv.items()):
+        def row(d, up):
+            fr = d["nat"] == HOME
+            arrow = f"<span style='color:{'#3ecf8e' if up else O};font-weight:900'>{'▲' if up else '▼'} {abs(d['delta'])}</span>"
+            o = ordinal_f if cat == "SW" else ordinal
+            return f"""<div style='display:flex;align-items:center;padding:0 26px;height:94px;border-radius:14px;margin-bottom:10px;background:{FR_BG if fr else ROW}'>
+<div style='width:120px;font-size:36px'>{arrow}</div><div class='{'fr' if fr else ''}' style='flex:1;font-size:33px;font-weight:700'>{e(d['name'])}</div>{nat(d['nat'])}
+<div style='width:210px;text-align:right;font-size:28px;color:{GREY};font-weight:700'>{o(d['before'])} → <span style='color:#f2f4f7'>{o(d['after'])}</span></div></div>"""
+        ups = "".join(row(d, True) for d in m["up"])
+        downs = "".join(row(d, False) for d in m["down"])
+        s = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker('QUI MONTE, QUI DESCEND')}<div class='h' style='font-size:58px'>Le général {config.CATEGORIES[cat]} après <span style='white-space:nowrap'>{e(apres_site(site))}</span></div></div>
+<div style='position:absolute;top:410px;left:72px;right:72px'>
+<div style='font-size:24px;color:#3ecf8e;font-weight:800;letter-spacing:.08em;margin-bottom:12px'>EN HAUSSE</div>{ups or "<div style='color:#6b7686;font-size:28px'>Aucune progression dans le top 30</div>"}
+<div style='font-size:24px;color:{O};font-weight:800;letter-spacing:.08em;margin:26px 0 12px'>EN BAISSE</div>{downs or "<div style='color:#6b7686;font-size:28px'>Aucune baisse dans le top 30</div>"}</div>"""
+        slides.append(page(s, "Classement général", config.CATEGORIES[cat], i + 2, total))
+    return slides
+
+
+# ================================================================ MARDI
+
+DISC_SHORT = {"SP": "SP", "PU": "PO", "MS": "MS", "IN": "IN", "SI": "IC"}
+
+
+def bleus(cat: str, site: str, athletes: list[dict]) -> list[str]:
+    fem = cat == "SW"
+    o = ordinal_f if fem else ordinal
+    label = "🇫🇷 LES BLEUES · FEMMES" if fem else "🇫🇷 LES BLEUS · HOMMES"
+    n = min(len(athletes), config.MAX_CAROUSEL - 1)
+    total = 1 + n
+    rows = ""
+    for a in athletes:
+        wk = " · ".join(f"{DISC_SHORT.get(d, d)} {o(r) if r else 'Ab.'}" for d, r in a["week_by_disc"]) or "-"
+        gen = f"{o(a['gen_rank'])} ({a['score']} pts)" if a.get("gen_rank") else "-"
+        tir = f"{a['week']['tir']} %" if a["week"]["tir"] is not None else "-"
+        rows += f"<div style='display:flex;align-items:center;padding:20px 0;border-top:1px solid #222b37;font-size:28px'><span class='fr' style='flex:1;font-weight:800'>{e(a['name'])}</span><span style='width:330px;color:#c5ccd6;font-weight:600;font-size:24px'>{e(wk)}</span><span class='num' style='width:200px;text-align:right;font-weight:700'>{e(gen)}</span><span class='num' style='width:100px;text-align:right;font-weight:800;color:{O}'>{e(tir)}</span></div>"
+    s1 = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker(label, '#7da2ff')}{title('Le week-end des Françaises' if fem else 'Le week-end des Français', 70)}</div>
+<div style='position:absolute;top:400px;left:72px;right:72px'>
+<div style='display:flex;font-size:20px;color:{MUTED};font-weight:800;letter-spacing:.08em;padding-bottom:12px'><span style='flex:1'>ATHLÈTE</span><span style='width:330px'>COURSES</span><span style='width:200px;text-align:right'>GÉNÉRAL</span><span style='width:100px;text-align:right'>TIR</span></div>{rows}
+<div style='font-size:22px;color:{MUTED};margin-top:14px'>SP sprint · PO poursuite · MS mass start · IN individuel · Tir : réussite du week-end</div></div>"""
+    slides = [page(s1, "Les Bleus" if not fem else "Les Bleues", f"Après {apres_site(site)}", 1, total)]
+    for i, a in enumerate(athletes[:n]):
+        def stat(k, wk, ss):
+            return f"<div style='display:flex;align-items:center;padding:22px 0;border-top:1px solid #222b37'><span style='flex:1;font-size:30px;color:{GREY};font-weight:700'>{e(k)}</span><span class='num' style='width:220px;text-align:right;font-size:38px;font-weight:900'>{e(wk)}</span><span class='num' style='width:220px;text-align:right;font-size:32px;font-weight:700;color:#c5ccd6'>{e(ss)}</span></div>"
+        w, s = a["week"], a["season"]
+        pct = lambda v: f"{v} %" if v is not None else "-"
+        form = ""
+        for p in a["form"]:
+            h = 40 + max(0, 160 - 4 * (p or 40)) if p else 30
+            form += f"<div style='flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:10px'><div style='width:64px;height:{h}px;background:{O if p and p<=3 else '#2b3442'};border-radius:10px 10px 0 0'></div><span style='font-size:24px;font-weight:800'>{o(p) if p else 'Ab.'}</span></div>"
+        gr = o(a["gen_rank"]) if a.get("gen_rank") else "-"
+        num, suf = (gr[:-2], gr[-2:]) if gr.endswith(("er", "re")) else (gr[:-1], gr[-1:])
+        body = f"""<div style='position:absolute;top:190px;left:72px;right:72px;display:flex;justify-content:space-between;align-items:flex-end'>
+<div>{kicker(f"{label.split(' ·')[0]} · {i+1}/{n}", '#7da2ff')}<div style='font-size:34px;color:{GREY};font-weight:600;margin-top:16px'>{e(a['first'])}</div><div style='font-size:{92 if len(a['last'])<11 else 70}px;font-weight:900;line-height:1;text-transform:uppercase'>{e(a['last'])}</div></div>
+<div style='text-align:right'><div style='font-size:24px;color:{GREY};font-weight:800;letter-spacing:.08em'>GÉNÉRAL</div><div style='font-size:120px;font-weight:900;color:{O};line-height:.9'>{num}<span style='font-size:60px'>{suf}</span></div></div></div>
+<div style='position:absolute;top:470px;left:72px;right:72px'>
+<div style='display:flex;font-size:20px;color:{MUTED};font-weight:800;letter-spacing:.08em;padding-bottom:10px'><span style='flex:1'></span><span style='width:220px;text-align:right'>WEEK-END</span><span style='width:220px;text-align:right'>SAISON</span></div>
+{stat('Meilleur résultat', o(w['best']), o(s['best']))}{stat('Tir', pct(w['tir']), pct(s['tir']))}{stat('Rang ski moyen', o(w['ski']), o(s['ski']))}{stat('Courses', str(w['n']), str(s['n']))}</div>
+<div style='position:absolute;top:960px;left:72px;right:72px'><div style='font-size:24px;color:{GREY};font-weight:800;letter-spacing:.08em;margin-bottom:16px'>FORME · {len(a['form'])} DERNIÈRES COURSES</div>
+<div style='display:flex;height:240px;gap:10px'>{form}</div></div>"""
+        slides.append(page(body, "Les Bleus" if not fem else "Les Bleues", f"Après {apres_site(site)}", i + 2, total))
+    return slides
