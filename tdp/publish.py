@@ -15,12 +15,17 @@ def upload(path: pathlib.Path, key: str) -> str:
     """Meta va chercher l'image lui-meme : elle doit etre sur une URL publique (bucket public)."""
     if config.DRY_RUN:
         return path.resolve().as_uri()
-    url = f"{config.SUPABASE_URL}/storage/v1/object/{config.SUPABASE_BUCKET}/{key}"
-    r = requests.post(url, data=path.read_bytes(), timeout=60, headers={
-        "Authorization": f"Bearer {config.SUPABASE_SERVICE_KEY}", "apikey": config.SUPABASE_SERVICE_KEY,
-        "Content-Type": "image/jpeg", "x-upsert": "true"})
-    r.raise_for_status()
-    return f"{config.SUPABASE_URL}/storage/v1/object/public/{config.SUPABASE_BUCKET}/{key}"
+    url = f"{config.SUPABASE_URL.rstrip('/')}/storage/v1/object/{config.SUPABASE_BUCKET}/{key}"
+    key_ = (config.SUPABASE_SERVICE_KEY or "").strip()
+    headers = {"apikey": key_, "Content-Type": "image/jpeg", "x-upsert": "true"}
+    if not key_.startswith("sb_"):
+        # Anciennes cles service_role (JWT) : elles passent aussi dans Authorization.
+        # Les nouvelles cles sb_secret ne sont pas des JWT : Storage les refuse dans Authorization.
+        headers["Authorization"] = f"Bearer {key_}"
+    r = requests.post(url, data=path.read_bytes(), timeout=60, headers=headers)
+    if not r.ok:
+        raise RuntimeError(f"Supabase {r.status_code} : {r.text[:300]}")
+    return f"{config.SUPABASE_URL.rstrip('/')}/storage/v1/object/public/{config.SUPABASE_BUCKET}/{key}"
 
 
 # ------------------------------------------------------------------ Instagram
