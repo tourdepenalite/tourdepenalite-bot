@@ -155,8 +155,11 @@ def handle_decisions(st: dict, now: dt.datetime):
             continue
         if action == "ok":
             do_publish(st, key)
+            ok = p["status"] == "published"
+            publish.notify(f"✅ {key} publié sur Instagram." if ok else f"⚠️ {key} : échec de publication, voir le journal.")
         else:
             p["status"] = "cancelled"
+            publish.notify(f"❌ {key} annulé.")
     for key, p in st["posts"].items():
         if p["status"] == "pending" and p.get("expires") and now > dt.datetime.fromisoformat(p["expires"]):
             p["status"] = "expired"

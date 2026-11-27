@@ -148,5 +148,8 @@ def read_decisions(offset: int) -> tuple[list[tuple[str, str]], int]:
             continue
         action, _, key = (cq.get("data") or "").partition("|")
         out.append((action, key))
-        _tg("answerCallbackQuery", callback_query_id=cq["id"], text="Publication lancée" if action == "ok" else "Annulé")
+        try:  # Telegram refuse de confirmer un clic trop ancien : sans importance, la decision est gardee
+            _tg("answerCallbackQuery", callback_query_id=cq["id"], text="Publication lancée" if action == "ok" else "Annulé")
+        except Exception as exc:
+            print("telegram: clic confirme trop tard :", exc)
     return out, offset
