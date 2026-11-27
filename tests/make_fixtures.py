@@ -68,6 +68,11 @@ def race(race_id, disc, cat, start_iso):
         total = ski + rng + pen
         res.append({"a": a, "misses": misses, "total": total, "ski": ski, "rng": rng, "shoot": shoot})
     res.sort(key=lambda r: r["total"])
+    import datetime as _dt
+    t_start = _dt.datetime.fromisoformat(start_iso.replace("Z", "+00:00"))
+    order = list(range(1, len(res) + 1))
+    if disc in ("SP", "IN"):
+        rnd.shuffle(order)
     rows = []
     for i, r in enumerate(res):
         a = r["a"]
@@ -76,7 +81,9 @@ def race(race_id, disc, cat, start_iso):
                      "Name": f"{a['GivenName']} {a['FamilyName']}", "Nat": a["Nat"], "Bib": str(i + 1), "IsTeam": False,
                      "Rank": "" if dnf else str(i + 1), "ResultOrder": i + 1, "IRM": "DNF" if dnf else "",
                      "TotalTime": "" if dnf else fmt(r["total"]), "Behind": "" if (dnf or i == 0) else "+" + fmt(r["total"] - res[0]["total"]).lstrip("0:"),
-                     "Shootings": "+".join(map(str, r["misses"])), "ShootingTotal": str(sum(r["misses"]))})
+                     "Shootings": "+".join(map(str, r["misses"])), "ShootingTotal": str(sum(r["misses"])),
+                     "StartOrder": order[i],
+                     "StartTime": (t_start + _dt.timedelta(seconds=(30 if disc in ("SP", "IN") else (round(i * 7.3, 1) if disc == "PU" else 0)) * (order[i] - 1 if disc in ("SP", "IN") else 1) if disc != "PU" else round(i * 7.3, 1))).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-5] + "Z"})
         for k, v in (("CRST", r["ski"]), ("RNGT", r["rng"]), ("STTM", r["shoot"])):
             ana[k].append({"IBUId": a["IBUId"], "TotalTime": fmt(v), "IsTeam": False})
     comp = {"RaceId": race_id, "DisciplineId": disc, "catId": cat, "ShortDescription": f"{'Men' if cat=='SM' else 'Women'} {km}km {disc}", "km": km, "StartTime": start_iso, "StatusText": "Official Results",
@@ -95,8 +102,13 @@ def relay(race_id, cat, start_iso):
     rnd.shuffle(nats)
     nats.sort(key=lambda n: -(1 if n in ("NOR", "FRA") else 0) + rnd.random())
     t0 = 4400
-    rows = [{"IsTeam": True, "Nat": n, "Name": n, "Rank": str(i + 1), "TotalTime": fmt(t0 + i * 17.3), "Behind": "" if i == 0 else "+" + fmt(i * 17.3).lstrip("0:"),
+    rows = [{"IsTeam": True, "Nat": n, "Name": n, "Bib": str(i + 1), "Rank": str(i + 1), "TotalTime": fmt(t0 + i * 17.3), "Behind": "" if i == 0 else "+" + fmt(i * 17.3).lstrip("0:"),
              "ShootingTotal": f"{rnd.randint(0,1)}+{rnd.randint(2,7)}"} for i, n in enumerate(nats)]
+    for i, n in enumerate(nats):
+        team = [a for a in ATH[cat] if a["Nat"] == n][:4]
+        for leg, a in enumerate(team, 1):
+            rows.append({"IsTeam": False, "Nat": n, "Leg": str(leg), "Bib": f"{i + 1}-{leg}", "IBUId": a["IBUId"],
+                         "FamilyName": a["FamilyName"], "GivenName": a["GivenName"]})
     comp = {"RaceId": race_id, "DisciplineId": "RL", "catId": cat, "ShortDescription": f"{'Women' if cat=='SW' else 'Men'} 4x6km Relay", "StartTime": start_iso, "StatusText": "Official Results"}
     (OUT / f"Results_{race_id}.json").write_text(json.dumps({"Competition": comp, "Results": rows}))
     for k in ("CRST", "RNGT", "STTM"):
