@@ -317,15 +317,23 @@ def pre_race(meta: dict, headline: str, lines: list[tuple[str, str]], favs: list
 <div style='position:absolute;top:400px;left:72px;right:72px'>{''.join(line(k, v) for k, v in lines)}
 <div style='margin-top:36px'>{kicker('NOS FAVORIS' if meta['cat']!='SW' else 'NOS FAVORITES')}{fav}</div>
 <div style='font-size:22px;color:{MUTED};margin-top:6px'>Calcul : résultats et tir sur les dernières courses</div></div>"""
-    opts = "".join(f"<div style='background:{FR_BG if r['nat']==HOME else 'var(--chip)'};border-radius:16px;padding:26px 30px;font-size:40px;font-weight:800'>{e(r['name'])}</div>" for r in favs[:2])
-    opts += "<div style='background:var(--chip);border-radius:16px;padding:26px 30px;font-size:40px;font-weight:800'>Quelqu’un d’autre</div>"
-    story = f"""<div style='position:absolute;top:260px;left:72px;right:72px'>{kicker('DANS 2 HEURES')}
-<div style='font-size:100px;font-weight:900;line-height:1;margin-top:20px'>{e(meta['label'])}</div>
-<div style='font-size:44px;color:{GREY};font-weight:700;margin-top:20px'>{hhmm} · {e(meta['site'])}</div></div>
-<div style='position:absolute;top:820px;left:72px;right:72px;background:{ROW};border-radius:24px;padding:44px'>
-<div style='font-size:30px;color:{GREY};font-weight:800;letter-spacing:.08em'>QUI GAGNE ?</div>
-<div style='display:flex;flex-direction:column;gap:18px;margin-top:26px'>{opts}</div></div>
-<div style='position:absolute;top:1500px;left:72px;right:72px;font-size:38px;font-weight:700;color:var(--soft);line-height:1.4'>{e(key_point)}</div>"""
+    # Story : pas de faux sondage (l'API ne permet pas les stickers interactifs) ;
+    # favoris et infos cles, puis invitation a repondre a la story (message prive).
+    fav_rows = "".join(
+        f"<div style='display:flex;align-items:center;gap:22px;padding:20px 0;border-top:1px solid var(--line)'>"
+        f"<span style='font-size:52px;font-weight:900;color:{O};width:46px'>{i+1}</span>{nat(r['nat'], 46)}"
+        f"<div style='flex:1'><div class='{'fr' if r['nat']==HOME else ''}' style='font-size:42px;font-weight:900'>{e(r['name'])}</div>"
+        f"<div style='font-size:26px;color:{GREY};margin-top:4px'>{e(r['why'])}</div></div></div>" for i, r in enumerate(favs[:3]))
+    meteo = next((v for k, v in lines if k == "Météo"), None)
+    meteo_html = f"<div style='font-size:34px;font-weight:700;color:var(--soft);margin-top:22px'>{e(meteo)}</div>" if meteo else ""
+    story = f"""<div style='position:absolute;top:250px;left:72px;right:72px'>{kicker('DANS 2 HEURES')}
+<div style='font-size:96px;font-weight:900;line-height:1;margin-top:20px'>{e(meta['label'])}</div>
+<div style='font-size:44px;color:{GREY};font-weight:700;margin-top:20px'>{hhmm} · {e(meta['site'])}</div>{meteo_html}</div>
+<div style='position:absolute;top:760px;left:72px;right:72px;background:var(--row);border-radius:28px;padding:36px 40px 20px'>
+<div style='font-size:30px;color:{O};font-weight:800;letter-spacing:.08em;margin-bottom:6px'>{'NOS FAVORITES' if meta['cat']=='SW' else 'NOS FAVORIS'}</div>{fav_rows}</div>
+<div style='position:absolute;top:1320px;left:72px;right:72px;font-size:34px;font-weight:700;color:var(--soft);line-height:1.4'>{e(key_point)}</div>
+<div style='position:absolute;top:1460px;left:72px;right:72px;text-align:center;font-size:40px;font-weight:900;color:var(--ink)'>
+Ton pronostic ? Réponds à cette story 💬</div>"""
     return page(feed, meta["site"], meta["label"]), page(story, meta["site"], "Story avant course", height=1920)
 
 
