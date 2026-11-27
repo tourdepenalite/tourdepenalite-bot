@@ -120,6 +120,10 @@ def produce(st: dict, key: str, kind: str, slides: list[str], caption: str, stor
     stamp = dt.datetime.now().strftime("%Y%m%d%H%M%S")
     urls = [publish.upload(p, f"{key.replace(':', '/')}/{stamp}_{p.name}") for p in paths]
     story_url = urls.pop() if story else None
+    real_now = dt.datetime.now(config.TZ)
+    if NOW < real_now - dt.timedelta(minutes=30):
+        # Rattrapage (--now dans le passe) : laisser 20 h pour valider, quelle que soit l'heure de la course.
+        expires = real_now + dt.timedelta(hours=20)
     if not alts:
         first = caption.strip().splitlines()[0] if caption.strip() else kind
         alts = [f"Tour de pénalité, statistiques de biathlon : {first} (visuel {i + 1}/{len(urls)})" for i in range(len(urls))]
