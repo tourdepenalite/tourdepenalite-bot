@@ -26,6 +26,7 @@ from .templates import HOME, flag, page, set_cat, a_site_txt, e
 FPS = 30
 HOOK, INTRO, STAGE, FINISH, OUTRO = 3.0, 2.4, 4.8, 4.4, 1.8
 TOP_ROWS = 10
+TOP_FR = 3
 
 
 # ---------------------------------------------------------------- donnees
@@ -87,36 +88,36 @@ def build(meta: dict, rows: list[dict]) -> dict:
         ath.append({**r, "misses": misses, "cum": cum, "arrive": arrive, "net": net})
     if not ath:
         return {}
+    # Homonymes (ex. Emilien et Fabien Claude) : initiale du prenom devant le nom
+    lasts = [a["last"] for a in ath]
+    for a in ath:
+        a["show"] = f"{a['first'][:1]}. {a['last']}" if lasts.count(a["last"]) > 1 and a["first"] else a["last"]
     final = sorted([a for a in ath if a["rank"]], key=lambda a: a["rank"])
     standings, prev, positions = [], {}, []
     for k in range(n):
         order = sorted(ath, key=lambda a: a["cum"][k])
         lead = order[0]["cum"][k]
         pos = {a["ibu"]: i + 1 for i, a in enumerate(order)}
-        top = [{"rank": i + 1, "last": a["last"], "nat": a["nat"], "gap": _gap(a["cum"][k] - lead),
+        top = [{"rank": i + 1, "last": a["show"], "nat": a["nat"], "gap": _gap(a["cum"][k] - lead),
                 "miss": sum(a["misses"][:k + 1]), "delta": (prev.get(a["ibu"], i + 1) - (i + 1)) if k else 0}
                for i, a in enumerate(order[:5])]
         fr = next(((i + 1, a) for i, a in enumerate(order) if a["nat"] == HOME), None)
         if fr and fr[0] > 5:
-            top.append({"rank": fr[0], "last": fr[1]["last"], "nat": HOME, "gap": _gap(fr[1]["cum"][k] - lead),
+            top.append({"rank": fr[0], "last": fr[1]["show"], "nat": HOME, "gap": _gap(fr[1]["cum"][k] - lead),
                         "miss": sum(fr[1]["misses"][:k + 1]), "delta": (prev.get(fr[1]["ibu"], fr[0]) - fr[0]) if k else 0})
         standings.append(top)
         positions.append(pos)
         prev = pos
     # Liste affichee a chaque tir = classement au moment du tir (temps de course a l'arrivee au pas de tir) :
     # les 10 premiers, plus le meilleur Francais s'il n'y est pas.
+    # Athletes suivis : top 10 final + 3 meilleurs Francais (hors top 10), ordonnes a chaque tir
+    # selon le classement au moment du tir (temps de course a l'arrivee au pas de tir, tous partants).
+    focus = final[:TOP_ROWS] + [a for a in final[TOP_ROWS:] if a["nat"] == HOME][:TOP_FR]
     vis, at_pos = [], []
     for k in range(n):
         order = sorted(ath, key=lambda a: a["net"][k])
         at_pos.append({a["ibu"]: i + 1 for i, a in enumerate(order)})
-        v = order[:TOP_ROWS]
-        fr = next((a for a in order if a["nat"] == HOME), None)
-        if fr and fr not in v:
-            v.append(fr)
-        vis.append(v)
-    focus = []
-    for v in vis:
-        focus += [a for a in v if a not in focus]
+        vis.append(sorted(focus, key=lambda a: at_pos[k][a["ibu"]]))
     slots, arr_rank = [], []
     for k in range(n):
         slots.append({a["ibu"]: i for i, a in enumerate(vis[k])})
@@ -130,7 +131,7 @@ def build(meta: dict, rows: list[dict]) -> dict:
     return {
         "hooks": hooks, "hook": "vainqueur",  # choix de Quentin (27/11) ; les deux autres restent disponibles
         "label": meta["label"], "site": meta["site"], "stages": [s.upper() for s in stages], "fem": fem,
-        "focus": [{"last": a["last"], "nat": a["nat"], "flag": flag(a["nat"]), "fr": a["nat"] == HOME, "misses": a["misses"],
+        "focus": [{"last": a["show"], "nat": a["nat"], "flag": flag(a["nat"]), "fr": a["nat"] == HOME, "misses": a["misses"],
                    "arr": [arr_rank[k].get(a["ibu"]) for k in range(n)], "nvis": [len(v) for v in vis],
                    "pos": [at_pos[k][a["ibu"]] for k in range(n)], "slot": [slots[k].get(a["ibu"]) for k in range(n)]} for a in focus],
         "nrows": max(len(v) for v in vis),
@@ -196,15 +197,15 @@ STYLE = """
 .tl .pt{position:absolute;top:38px;width:18px;height:18px;border-radius:50%;background:var(--bg);border:4px solid var(--bar);transform:translateX(-50%)}
 .tl .pt.on{border-color:var(--flash);background:var(--flash)}
 .foot{display:none}
-.row{position:absolute;left:72px;right:150px;height:50px;border-radius:14px;display:flex;align-items:center;padding:0 18px;font-size:30px;font-weight:800;transition:none}
+.row{position:absolute;left:72px;right:150px;height:44px;border-radius:14px;display:flex;align-items:center;padding:0 18px;font-size:27px;font-weight:800;transition:none}
 .row .nm{flex:1;margin-left:14px;white-space:nowrap;overflow:hidden;text-transform:uppercase}
-.tg{width:30px;height:30px;border-radius:50%;margin-left:9px;border:3px solid var(--ink);background:transparent}
+.tg{width:26px;height:26px;border-radius:50%;margin-left:9px;border:3px solid var(--ink);background:transparent}
 .tg.hit{background:var(--ink)}
 .tg.miss{border-color:var(--flash);background:var(--flash)}
 .cnt{width:70px;text-align:right;font-size:24px;color:var(--muted);font-weight:800}
 .banner{position:absolute;left:0;right:0;top:820px;text-align:center}
 .banner span{display:inline-block;background:var(--flash);color:var(--on-flash);font-size:78px;font-weight:900;padding:14px 46px;border-radius:22px;letter-spacing:.04em}
-.sd{position:absolute;left:72px;right:150px;height:44px;display:flex;align-items:center;font-size:26px;font-weight:800;border-top:1px solid var(--line)}
+.sd{position:absolute;left:72px;right:150px;height:41px;display:flex;align-items:center;font-size:26px;font-weight:800;border-top:1px solid var(--line)}
 .sd .r{width:56px;color:var(--grey)} .sd .n{flex:1;margin-left:12px;text-transform:uppercase} .sd .g{width:150px;text-align:right}
 .sd .d{width:64px;text-align:right;font-size:20px}
 #hook{position:absolute;inset:0;z-index:20;background:var(--bg-grad, var(--bg));overflow:hidden}
@@ -239,7 +240,7 @@ const rows = document.getElementById('rows');
 rows.innerHTML = D.focus.map((a, i) => `<div class='row' id='r${{i}}' style='top:600px;opacity:0'>
   <span class='ps' id='p${{i}}' style='width:58px;font-size:24px;color:var(--grey);font-weight:900'></span><span style='font-size:30px'>${{a.flag}}</span><span class='nm' style='color:${{a.fr ? "var(--fr)" : "var(--ink)"}}'>${{a.last}}</span>
   ${{[0,1,2,3,4].map(j => `<span class='tg' id='t${{i}}_${{j}}'></span>`).join('')}}<span class='cnt' id='c${{i}}'></span></div>`).join('');
-const SD_TOP = 600 + D.nrows * 56 + 26;
+const SD_TOP = 590 + D.nrows * 49 + 18;
 function stageStart(k) {{ return T.intro + k * T.stage; }}
 function drawHook(t) {{
   const el = document.getElementById('hook'), H = D.hooks[D.hook];
@@ -310,7 +311,7 @@ function draw(t0) {{
     r.style.opacity = showRows ? Math.min(appear, out, vis) : 0;
     r.style.transform = `translateX(${{(1 - Math.min(appear, vis)) * -40}}px)`;
     const y0 = prv ?? cur ?? 0, y1 = cur ?? prv ?? 0;
-    r.style.top = (600 + 56 * (y0 + (y1 - y0) * mv)) + 'px';
+    r.style.top = (590 + 49 * (y0 + (y1 - y0) * mv)) + 'px';
     document.getElementById('p' + i).textContent = (mv >= 0.5 || kk === 0 ? a.pos[kk] : a.pos[kk - 1]) + 'e';
     const nf = a.nvis[kk];
     const on = cur != null;
@@ -345,7 +346,7 @@ function draw(t0) {{
       st.map((s, i) => {{
         const a = sk === k ? ease((since - i * 0.08) / 0.35) : 1;
         const d = s.delta > 0 ? `<span style='color:var(--up)'>▲${{s.delta}}</span>` : s.delta < 0 ? `<span style='color:var(--flash)'>▼${{-s.delta}}</span>` : '';
-        return `<div class='sd' style='top:${{SD_TOP + 38 + i * 44}}px;opacity:${{a}};transform:translateY(${{(1 - a) * 16}}px)'>
+        return `<div class='sd' style='top:${{SD_TOP + 36 + i * 41}}px;opacity:${{a}};transform:translateY(${{(1 - a) * 16}}px)'>
           <span class='r'>${{s.rank}}</span><span>${{s.flag}}</span><span class='n' style='color:${{s.fr ? "var(--fr)" : "var(--ink)"}}'>${{s.last}}</span>
           <span class='d'>${{d}}</span><span class='g'>${{s.gap || 'en tête'}}</span></div>`; }}).join('');
   }} else sds.innerHTML = '';
