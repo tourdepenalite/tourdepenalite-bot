@@ -58,7 +58,9 @@ class Client:
             return _fixture(method, params)
         cache = CACHE_DIR / (method + "_" + "_".join(f"{k}-{v}" for k, v in sorted(params.items())) + ".json")
         if cache_s and cache.exists() and time.time() - cache.stat().st_mtime < cache_s:
-            return json.loads(cache.read_text())
+            cached = json.loads(cache.read_text())
+            if not (cached in ([], {}, None) or (isinstance(cached, dict) and "Results" in cached and not cached["Results"])):
+                return cached   # une ancienne reponse vide en cache est ignoree
         for attempt in range(3):
             if not self.key:
                 self.key = self._fetch_key()
@@ -71,7 +73,8 @@ class Client:
                 continue
             r.raise_for_status()
             data = r.json()
-            if cache_s:
+            empty = data in ([], {}, None) or (isinstance(data, dict) and "Results" in data and not data["Results"])
+            if cache_s and not empty:   # une reponse vide (donnees pas encore publiees) n'est jamais gardee en cache
                 cache.parent.mkdir(parents=True, exist_ok=True)
                 cache.write_text(json.dumps(data))
             return data

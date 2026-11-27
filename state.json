@@ -143,6 +143,73 @@
     "18102158246664458"
    ],
    "published": "2026-11-27T16:16:05.164286+01:00"
+  },
+  "post:BT2627SWRLCP01SWIN": {
+   "kind": "apres_course",
+   "status": "pending",
+   "urls": [
+    "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SWIN/20261127172202_s_01.jpg",
+    "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SWIN/20261127172202_s_02.jpg",
+    "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SWIN/20261127172202_s_03.jpg",
+    "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SWIN/20261127172202_s_04.jpg",
+    "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SWIN/20261127172202_s_05.jpg",
+    "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SWIN/20261127172202_s_06.jpg",
+    "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SWIN/20261127172202_s_07.jpg",
+    "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SWIN/20261127172202_s_08.jpg",
+    "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SWIN/20261127172202_s_09.jpg",
+    "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SWIN/20261127172202_s_10.jpg"
+   ],
+   "story_urls": [
+    "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SWIN/20261127172202_s_11.jpg",
+    "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SWIN/20261127172202_s_12.jpg"
+   ],
+   "caption": "🏆 Elvira Oeberg remporte l'individuel femmes 15 km à Kontiolahti\nCoupe du monde de biathlon, le podium : Elvira Oeberg, Sonja Leinamo (+22.7), Julia Simon (+35.4).\n🇫🇷 Meilleure Française : Julia Simon, 3e.\nSki, tir et fiche de chaque Bleue dans le carrousel 👉\nQui vous a le plus impressionné aujourd'hui ?\n\n#biathlon #kontiolahti #elviraoeberg #juliasimon #biathlonfrance",
+   "alts": [
+    "Top 10 : 1. Elvira Oeberg (SWE, 1 faute), 2. Sonja Leinamo (FIN, sans faute), 3. Julia Simon (FRA, sans faute), 4. Oceane Michelon (FRA, sans faute), 5. Marthe Krakstad Johansen (NOR, sans faute), 6. Karoline Offigstad Knotten (NOR, 1 faute), 7. Julia Tannheimer (GER, 1 faute), 8. Lisa Vittozzi (ITA, 2 fautes), 9. Tereza Vobornikova (CZE, sans faute), 10. Lucie Charvatova (CZE, 2 fautes).",
+    "Stat du jour : 5 sans-faute dans le top 15. 5 sans-faute dans le top 15 : Sonja Leinamo, Julia Simon, Oceane Michelon, Marthe Krakstad Johansen, Tereza Vobornikova.",
+    "Fiche de Julia Simon : 3e, 17e temps de ski, 20/20 au tir.",
+    "Fiche de Oceane Michelon : 4e, 19e temps de ski, 20/20 au tir.",
+    "Fiche de Lou Jeanmonnot : 11e, 6e temps de ski, 18/20 au tir.",
+    "Fiche de Camille Bened : 26e, 39e temps de ski, 18/20 au tir.",
+    "Fiche de Paula Botet : 30e, 29e temps de ski, 18/20 au tir.",
+    "Fiche de Justine Braisaz-Bouchet : 52e, 2e temps de ski, 14/20 au tir.",
+    "Fiche de Gilonne Guigonnat : 59e, 22e temps de ski, 15/20 au tir.",
+    "Podium de l'individuel femmes 15 km de Coupe du monde de biathlon à Kontiolahti : 1. Elvira Oeberg (SWE), 2. Sonja Leinamo (FIN), 3. Julia Simon (FRA)."
+   ],
+   "created": "2026-11-27T18:21:45.936554+01:00",
+   "expires": "2026-11-28T14:21:45.936554+01:00",
+   "files": [
+    "out/post_BT2627SWRLCP01SWIN/s_01.jpg",
+    "out/post_BT2627SWRLCP01SWIN/s_02.jpg",
+    "out/post_BT2627SWRLCP01SWIN/s_03.jpg",
+    "out/post_BT2627SWRLCP01SWIN/s_04.jpg",
+    "out/post_BT2627SWRLCP01SWIN/s_05.jpg",
+    "out/post_BT2627SWRLCP01SWIN/s_06.jpg",
+    "out/post_BT2627SWRLCP01SWIN/s_07.jpg",
+    "out/post_BT2627SWRLCP01SWIN/s_08.jpg",
+    "out/post_BT2627SWRLCP01SWIN/s_09.jpg",
+    "out/post_BT2627SWRLCP01SWIN/s_10.jpg",
+    "out/post_BT2627SWRLCP01SWIN/s_11.jpg",
+    "out/post_BT2627SWRLCP01SWIN/s_12.jpg"
+   ],
+   "complete": true
+  },
+  "redo:BT2627SWRLCP01SWIN:2026-11-27T18:05:48.961507+01:00": {
+   "status": "skipped"
+  },
+  "reel:BT2627SWRLCP01SWIN": {
+   "kind": "reel",
+   "status": "pending",
+   "urls": [],
+   "story_urls": [],
+   "video_url": "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/reel/BT2627SWRLCP01SWIN/20261127172303_reel.mp4",
+   "thumb_ms": 1600,
+   "caption": "Elvira Oeberg gagne après un départ 56e 🔥\nBiathlon, Coupe du monde : la course rejouée tir par tir.\nOeberg gagne avec 1 faute. Elle est 1re après le tir 1, puis 3e après le tir 4.\nLeinamo mène après les tirs 2, 3 et 4. Simon la suit de près.\nQui avait vu venir cette victoire ?\n\n#biathlon #kontiolahti #elviraoeberg #biathlonfrance #coupedumondebiathlon",
+   "created": "2026-11-27T18:21:45.936554+01:00",
+   "expires": "2026-11-28T14:21:45.936554+01:00",
+   "files": [
+    "out/reel_BT2627SWRLCP01SWIN/reel.mp4"
+   ]
   }
  },
  "tg_offset": 969544676,
@@ -199,8 +266,9 @@
    "status": "Final | Final"
   },
   "BT2627SWRLCP01SWIN": {
-   "sig": "280dcfe4e99cd7946b92519355f6522e",
-   "status": "Running | Running"
+   "sig": "8b9c0114b736b1eb5de5b530a6856b73",
+   "status": "Unofficial | Unofficial",
+   "ready_at": "2026-11-27T18:21:45.936554+01:00"
   }
  }
 }
