@@ -110,7 +110,7 @@
   },
   "grid:BT2627SWRLCP01SWIN": {
    "kind": "grille",
-   "status": "pending",
+   "status": "published",
    "urls": [],
    "story_url": "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/grid/BT2627SWRLCP01SWIN/20261127140604_s_01.jpg",
    "caption": "",
@@ -119,10 +119,14 @@
    "expires": "2026-11-27T16:15:00+01:00",
    "files": [
     "out/grid_BT2627SWRLCP01SWIN/s_01.jpg"
-   ]
+   ],
+   "ig_story_ids": [
+    "18118074398137935"
+   ],
+   "published": "2026-11-27T15:25:47.122317+01:00"
   }
  },
- "tg_offset": 969544673,
+ "tg_offset": 969544675,
  "snapshots": {
   "BT2627SWRLCP01": {
    "SM": {
