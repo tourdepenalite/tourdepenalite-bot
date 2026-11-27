@@ -107,7 +107,7 @@ def race_meta(comp: dict, event: dict | None = None) -> dict:
         km = m.group(1)
     if km:
         km = f"{float(km):g}" if str(km).replace(".", "", 1).isdigit() else str(km)
-    km_txt = f"{str(km).replace('.', ',')} km" if km else ""
+    km_txt = f"{str(km).replace('.', ',')}\u00a0km" if km else ""  # espace insecable : jamais "7,5 / km"
     d = config.DISCIPLINES.get(disc, {"fr": desc})
     if disc in ("MR", "SR"):
         label = d["fr"]
