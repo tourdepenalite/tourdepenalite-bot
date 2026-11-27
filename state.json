@@ -2,7 +2,7 @@
  "posts": {
   "post:BT2627SWRLCP01SMIN": {
    "kind": "apres_course",
-   "status": "pending",
+   "status": "published",
    "urls": [
     "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SMIN/20261127110123_s_01.jpg",
     "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SMIN/20261127110123_s_02.jpg",
@@ -30,10 +30,12 @@
     "out/post_BT2627SWRLCP01SMIN/s_08.jpg",
     "out/post_BT2627SWRLCP01SMIN/s_09.jpg",
     "out/post_BT2627SWRLCP01SMIN/s_10.jpg"
-   ]
+   ],
+   "ig_id": "18342538894302961",
+   "published": "2026-11-27T12:04:10.222311+01:00"
   }
  },
- "tg_offset": 0,
+ "tg_offset": 969544665,
  "snapshots": {},
  "watch": {
   "BT2627SWRLCP01SMIN": {
