@@ -1,0 +1,17 @@
+{
+ "posts": {
+  "post:BT2627SWRLCP01SMIN": {
+   "status": "error",
+   "error": "Supabase 400 : {\"statusCode\":\"403\",\"error\":\"Unauthorized\",\"message\":\"Invalid Compact JWS\",\"code\":\"AccessDenied\"}",
+   "attempts": 1
+  }
+ },
+ "tg_offset": 0,
+ "snapshots": {},
+ "watch": {
+  "BT2627SWRLCP01SMIN": {
+   "sig": "5a168f2fe548917cd4f6d246354b9526",
+   "status": "Final | Final"
+  }
+ }
+}
