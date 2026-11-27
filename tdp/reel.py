@@ -82,8 +82,9 @@ def build(meta: dict, rows: list[dict]) -> dict:
         if meta["disc"] in ("SP", "IN") and r.get("start") and t0:
             start = (dt.datetime.fromisoformat(r["start"].replace("Z", "+00:00")) - t0).total_seconds()
         crs = [parse_time(x) or 0 for x in r["crs"][:n]]
-        arrive = [start + (cum[k - 1] if k else offset) + crs[k] for k in range(n)]   # heure d'arrivee au tir k
-        ath.append({**r, "misses": misses, "cum": cum, "arrive": arrive})
+        net = [(cum[k - 1] if k else offset) + crs[k] for k in range(n)]   # temps de course a l'arrivee au tir k
+        arrive = [start + net[k] for k in range(n)]                          # heure d'arrivee au tir k
+        ath.append({**r, "misses": misses, "cum": cum, "arrive": arrive, "net": net})
     if not ath:
         return {}
     final = sorted([a for a in ath if a["rank"]], key=lambda a: a["rank"])
@@ -106,10 +107,14 @@ def build(meta: dict, rows: list[dict]) -> dict:
         standings.append(top)
         positions.append(pos)
         prev = pos
-    arr_rank = []
+    arr_rank, at_pos, slots = [], [], []
     for k in range(n):
         order = sorted(focus, key=lambda a: a["arrive"][k])
         arr_rank.append({a["ibu"]: i for i, a in enumerate(order)})
+        # Classement au moment du tir (temps de course a l'arrivee au pas de tir), parmi tous les athletes
+        allpos = {a["ibu"]: i + 1 for i, a in enumerate(sorted(ath, key=lambda a: a["net"][k]))}
+        at_pos.append(allpos)
+        slots.append({a["ibu"]: i for i, a in enumerate(sorted(focus, key=lambda a: allpos[a["ibu"]]))})
     win = final[0]
     podium = [{"rank": a["rank"], "first": a["first"], "last": a["last"], "nat": a["nat"],
                "time": str(a["total"]).replace(".", ",") if a["rank"] == 1 else _gap(parse_time(a["total"]) - parse_time(win["total"])),
@@ -120,7 +125,8 @@ def build(meta: dict, rows: list[dict]) -> dict:
         "hooks": hooks, "hook": "vainqueur",  # choix de Quentin (27/11) ; les deux autres restent disponibles
         "label": meta["label"], "site": meta["site"], "stages": [s.upper() for s in stages], "fem": fem,
         "focus": [{"last": a["last"], "nat": a["nat"], "flag": flag(a["nat"]), "fr": a["nat"] == HOME, "misses": a["misses"],
-                   "arr": [arr_rank[k][a["ibu"]] for k in range(n)], "rank": o(a["rank"])} for a in focus],
+                   "arr": [arr_rank[k][a["ibu"]] for k in range(n)], "rank": o(a["rank"]),
+                   "pos": [at_pos[k][a["ibu"]] for k in range(n)], "slot": [slots[k][a["ibu"]] for k in range(n)]} for a in focus],
         "standings": [[{**s, "flag": flag(s["nat"]), "fr": s["nat"] == HOME} for s in st] for st in standings],
         "podium": [{**p, "flag": flag(p["nat"]), "fr": p["nat"] == HOME} for p in podium],
         "best_fr": ({"name": f"{best_fr['first']} {best_fr['last']}", "rank": o(best_fr["rank"])}
@@ -223,8 +229,8 @@ tl.innerHTML = "<div class='bar'></div><div class='fill' id='fill'></div>" + lab
   const x = 12 + W * i / (labels.length - 1);
   return `<div class='st' style='left:${{x}}px'>${{l}}</div><div class='pt' id='pt${{i}}' style='left:${{x}}px'></div>`; }}).join('');
 const rows = document.getElementById('rows');
-rows.innerHTML = D.focus.map((a, i) => `<div class='row' id='r${{i}}' style='top:${{600 + i * 56}}px'>
-  <span style='font-size:30px'>${{a.flag}}</span><span class='nm' style='color:${{a.fr ? "var(--fr)" : "var(--ink)"}}'>${{a.last}}</span>
+rows.innerHTML = D.focus.map((a, i) => `<div class='row' id='r${{i}}' style='top:${{600 + a.slot[0] * 56}}px'>
+  <span class='ps' id='p${{i}}' style='width:58px;font-size:24px;color:var(--grey);font-weight:900'></span><span style='font-size:30px'>${{a.flag}}</span><span class='nm' style='color:${{a.fr ? "var(--fr)" : "var(--ink)"}}'>${{a.last}}</span>
   ${{[0,1,2,3,4].map(j => `<span class='tg' id='t${{i}}_${{j}}'></span>`).join('')}}<span class='cnt' id='c${{i}}'></span></div>`).join('');
 const SD_TOP = 600 + D.focus.length * 56 + 26;
 function stageStart(k) {{ return T.intro + k * T.stage; }}
@@ -288,6 +294,11 @@ function draw(t0) {{
     const out = t >= fin0 ? 1 - ease((t - fin0) / 0.4) : 1;
     r.style.opacity = showRows ? Math.min(appear, out) : 0;
     r.style.transform = `translateX(${{(1 - appear) * -40}}px)`;
+    // place dans la liste = classement au moment du tir k ; glissement au debut de chaque tir
+    const from = a.slot[Math.max(0, k - 1)], to = a.slot[k];
+    const mv = t < T.intro ? 0 : ease((t - s0 + 0.1) / 0.6);
+    r.style.top = (600 + 56 * (from + (to - from) * (k === 0 ? 1 : mv))) + 'px';
+    document.getElementById('p' + i).textContent = (t >= T.intro - 0.6 ? (k === 0 || mv >= 0.5 ? a.pos[k] : a.pos[k - 1]) : a.pos[0]) + (D.fem ? 'e' : 'e');
     const nf = D.focus.length;
     const ts = s0 + 0.9 + 2.1 * (a.arr[k] / Math.max(1, nf - 1));
     let shooting = inStages && t >= ts && t < ts + 1.0;
