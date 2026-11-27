@@ -431,7 +431,36 @@ draw(0);
     return page(body, data["site"], "Revivre la course", height=1920)
 
 
-def record(data: dict, out: pathlib.Path, audio: str | None = None, until: float | None = None) -> pathlib.Path:
+def pick_music(seed: str, length: float) -> dict | None:
+    """Telecharge un morceau depuis le bucket prive et choisit un passage (different d'une course a l'autre).
+    Renvoie {"file", "start"} ou None (Reel sans musique) si rien n'est disponible."""
+    import hashlib
+    import requests
+    if not config.MUSIC or not config.SUPABASE_URL:
+        return None
+    h = int(hashlib.md5(seed.encode()).hexdigest(), 16)
+    track = config.MUSIC[h % len(config.MUSIC)]
+    slots = max(1, int((track["end"] - length - track["start"]) // track["step"]) + 1)
+    start = track["start"] + track["step"] * ((h // 7) % slots)
+    dest = pathlib.Path(tempfile.gettempdir()) / "tdp_music" / pathlib.Path(track["path"]).name
+    if not dest.exists():
+        key = (config.SUPABASE_SERVICE_KEY or "").strip().strip('"').strip("'")
+        if key.lower().startswith("bearer "):
+            key = key[7:].strip()
+        headers = {"apikey": key} if key.startswith("sb_") else {"apikey": key, "Authorization": f"Bearer {key}"}
+        url = f"{config.SUPABASE_URL.rstrip('/')}/storage/v1/object/authenticated/{config.MUSIC_BUCKET}/{track['path']}"
+        try:
+            r = requests.get(url, headers=headers, timeout=60)
+            r.raise_for_status()
+        except Exception as exc:  # noqa: BLE001
+            print(f"[reel] musique indisponible ({track['path']}) : {exc}")
+            return None
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(r.content)
+    return {"file": str(dest), "start": round(start, 2)}
+
+
+def record(data: dict, out: pathlib.Path, audio: dict | None = None, until: float | None = None) -> pathlib.Path:
     """Capture image par image puis encode en MP4 (H.264, 30 i/s)."""
     from playwright.sync_api import sync_playwright
     tmp = pathlib.Path(tempfile.mkdtemp(prefix="reel_"))
@@ -447,9 +476,14 @@ def record(data: dict, out: pathlib.Path, audio: str | None = None, until: float
             pg.screenshot(path=str(tmp / f"{f:05d}.jpg"), type="jpeg", quality=88)
         b.close()
     out.parent.mkdir(parents=True, exist_ok=True)
+    length = n / FPS
     cmd = ["ffmpeg", "-v", "error", "-y", "-framerate", str(FPS), "-i", str(tmp / "%05d.jpg")]
     if audio:
-        cmd += ["-i", audio, "-shortest", "-c:a", "aac", "-b:a", "128k"]
+        # Passage du morceau, fondu de sortie, volume normalise (-14 LUFS), AAC 48 kHz (specification Reels)
+        cmd += ["-ss", str(audio["start"]), "-t", f"{length:.2f}", "-i", audio["file"],
+                "-filter_complex", f"[1:a]afade=t=in:st=0:d=0.15,afade=t=out:st={max(0, length - 1.8):.2f}:d=1.8,"
+                                   "loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000[a]",
+                "-map", "0:v", "-map", "[a]", "-c:a", "aac", "-b:a", "128k", "-ar", "48000", "-shortest"]
     cmd += ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(out)]
     subprocess.run(cmd, check=True)
     shutil.rmtree(tmp, ignore_errors=True)
