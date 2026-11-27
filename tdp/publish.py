@@ -16,7 +16,9 @@ def upload(path: pathlib.Path, key: str) -> str:
     if config.DRY_RUN:
         return path.resolve().as_uri()
     url = f"{config.SUPABASE_URL.rstrip('/')}/storage/v1/object/{config.SUPABASE_BUCKET}/{key}"
-    key_ = (config.SUPABASE_SERVICE_KEY or "").strip()
+    key_ = (config.SUPABASE_SERVICE_KEY or "").strip().strip('"').strip("'")
+    if key_.lower().startswith("bearer "):
+        key_ = key_[7:].strip()
     headers = {"apikey": key_, "Content-Type": "image/jpeg", "x-upsert": "true"}
     if not key_.startswith("sb_"):
         # Anciennes cles service_role (JWT) : elles passent aussi dans Authorization.
@@ -24,7 +26,9 @@ def upload(path: pathlib.Path, key: str) -> str:
         headers["Authorization"] = f"Bearer {key_}"
     r = requests.post(url, data=path.read_bytes(), timeout=60, headers=headers)
     if not r.ok:
-        raise RuntimeError(f"Supabase {r.status_code} : {r.text[:300]}")
+        kind = ("sb_secret" if key_.startswith("sb_secret_") else "sb_publishable" if key_.startswith("sb_publishable_")
+                else "JWT" if key_.startswith("eyJ") else "format inconnu")
+        raise RuntimeError(f"Supabase {r.status_code} : {r.text[:300]} | cle de type {kind}, {len(key_)} caracteres")
     return f"{config.SUPABASE_URL.rstrip('/')}/storage/v1/object/public/{config.SUPABASE_BUCKET}/{key}"
 
 
