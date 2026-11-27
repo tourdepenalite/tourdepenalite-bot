@@ -24,8 +24,9 @@ from .stats import fmt_time, ordinal, ordinal_f, parse_time
 from .templates import HOME, flag, page, set_cat, a_site_txt, e
 
 FPS = 30
-HOOK, INTRO, STAGE, FINISH, OUTRO = 3.0, 2.4, 4.8, 4.4, 1.8
-MAX_FOCUS = 10
+HOOK, INTRO, STAGE, FINISH, OUTRO = 3.0, 1.0, 4.8, 4.4, 1.8
+TOP_ROWS = 10
+TOP_FR = 3
 
 
 # ---------------------------------------------------------------- donnees
@@ -51,6 +52,51 @@ def load_rows(client, race_id: str, nr_shootings: int) -> list[dict]:
                      "lap": [laps.get(f"LAP{k}", {}).get(i) for k in range(1, nr_shootings + 2)],
                      "crs": [laps.get(f"CRS{k}", {}).get(i) for k in range(1, nr_shootings + 2)]})
     return rows
+
+
+def course_info(client, race_id: str) -> dict:
+    """Donnees officielles du parcours, lues dans le rapport IBU « Competition Data Summary » (PDF C82) :
+    « Course Information : 5 x 4.0km brown », longueur totale, denivele total. Vide si indisponible."""
+    import io
+    import re
+    import requests
+    from pypdf import PdfReader
+    rep = next((r for r in client.reports(race_id) if "Data Summary" in (r.get("Description") or "")), None)
+    if not rep or os.environ.get("TDP_IBU_FIXTURES"):
+        return {}
+    try:
+        pdf = requests.get(rep["URL"], timeout=60).content
+        text = "\n".join((p.extract_text() or "") for p in PdfReader(io.BytesIO(pdf)).pages)
+    except Exception as exc:  # noqa: BLE001
+        print("[reel] rapport C82 illisible :", exc)
+        return {}
+    info = {}
+    block = text.split("Course Information", 1)[-1][:200] if "Course Information" in text else ""
+    loops = []
+    for nb, km in re.findall(r"(\d+)\s*x\s*([\d.,]+)\s*km", block):
+        loops += [float(km.replace(",", "."))] * int(nb)
+    if loops:
+        info["loops"] = loops
+    if m := re.search(r"Total Climb\s*\n?\s*(\d+)\s*m", text):
+        info["climb"] = int(m.group(1))
+    if m := re.search(r"Total Course Length\s*\n?\s*(\d+)\s*m", text):
+        info["length_m"] = int(m.group(1))
+    return info
+
+
+def _fmt_km(km: float) -> str:
+    return f"{km:.1f}".rstrip("0").rstrip(".").replace(".", ",") + " km"
+
+
+def _loop_km(meta: dict, n: int) -> str:
+    """Distance d'un tour (les tours sont de longueur egale : distance totale / (tirs + 1))."""
+    try:
+        km = float(str(meta.get("km") or "").replace(",", "."))
+    except ValueError:
+        return ""
+    if not km or not n:
+        return ""
+    return f"{km / (n + 1):.2f}".rstrip("0").rstrip(".").replace(".", ",") + " km"
 
 
 def _gap(s: float) -> str:
@@ -82,34 +128,49 @@ def build(meta: dict, rows: list[dict]) -> dict:
         if meta["disc"] in ("SP", "IN") and r.get("start") and t0:
             start = (dt.datetime.fromisoformat(r["start"].replace("Z", "+00:00")) - t0).total_seconds()
         crs = [parse_time(x) or 0 for x in r["crs"][:n]]
-        arrive = [start + (cum[k - 1] if k else offset) + crs[k] for k in range(n)]   # heure d'arrivee au tir k
-        ath.append({**r, "misses": misses, "cum": cum, "arrive": arrive})
+        net = [(cum[k - 1] if k else offset) + crs[k] for k in range(n)]   # temps de course a l'arrivee au tir k
+        arrive = [start + net[k] for k in range(n)]                          # heure d'arrivee au tir k
+        ath.append({**r, "misses": misses, "cum": cum, "arrive": arrive, "net": net})
     if not ath:
         return {}
+    # Homonymes (ex. Emilien et Fabien Claude) : initiale du prenom devant le nom
+    lasts = [a["last"] for a in ath]
+    for a in ath:
+        a["show"] = f"{a['first'][:1]}. {a['last']}" if lasts.count(a["last"]) > 1 and a["first"] else a["last"]
     final = sorted([a for a in ath if a["rank"]], key=lambda a: a["rank"])
-    focus = final[:6]
-    focus += [a for a in final if a["nat"] == HOME and a not in focus][: MAX_FOCUS - len(focus)]
-    focus += [a for a in final if a not in focus][: max(0, 10 - len(focus))]
-    focus.sort(key=lambda a: a["rank"])
     standings, prev, positions = [], {}, []
     for k in range(n):
         order = sorted(ath, key=lambda a: a["cum"][k])
         lead = order[0]["cum"][k]
         pos = {a["ibu"]: i + 1 for i, a in enumerate(order)}
-        top = [{"rank": i + 1, "last": a["last"], "nat": a["nat"], "gap": _gap(a["cum"][k] - lead),
+        top = [{"rank": i + 1, "last": a["show"], "nat": a["nat"], "gap": _gap(a["cum"][k] - lead),
                 "miss": sum(a["misses"][:k + 1]), "delta": (prev.get(a["ibu"], i + 1) - (i + 1)) if k else 0}
                for i, a in enumerate(order[:5])]
         fr = next(((i + 1, a) for i, a in enumerate(order) if a["nat"] == HOME), None)
         if fr and fr[0] > 5:
-            top.append({"rank": fr[0], "last": fr[1]["last"], "nat": HOME, "gap": _gap(fr[1]["cum"][k] - lead),
+            top.append({"rank": fr[0], "last": fr[1]["show"], "nat": HOME, "gap": _gap(fr[1]["cum"][k] - lead),
                         "miss": sum(fr[1]["misses"][:k + 1]), "delta": (prev.get(fr[1]["ibu"], fr[0]) - fr[0]) if k else 0})
         standings.append(top)
         positions.append(pos)
         prev = pos
-    arr_rank = []
+    # Liste affichee a chaque tir = classement au moment du tir (temps de course a l'arrivee au pas de tir) :
+    # les 10 premiers, plus le meilleur Francais s'il n'y est pas.
+    # Liste affichee a chaque tir = classement au moment du tir (temps de course a l'arrivee au pas de tir) :
+    # les 10 premiers, plus les 3 meilleurs Francais qui n'y sont pas.
+    vis, at_pos = [], []
     for k in range(n):
-        order = sorted(focus, key=lambda a: a["arrive"][k])
-        arr_rank.append({a["ibu"]: i for i, a in enumerate(order)})
+        order = sorted(ath, key=lambda a: a["net"][k])
+        at_pos.append({a["ibu"]: i + 1 for i, a in enumerate(order)})
+        v = order[:TOP_ROWS]
+        v += [a for a in order[TOP_ROWS:] if a["nat"] == HOME][:TOP_FR]
+        vis.append(v)
+    focus = []
+    for v in vis:
+        focus += [a for a in v if a not in focus]
+    slots, arr_rank = [], []
+    for k in range(n):
+        slots.append({a["ibu"]: i for i, a in enumerate(vis[k])})
+        arr_rank.append({a["ibu"]: i for i, a in enumerate(sorted(vis[k], key=lambda a: a["arrive"][k]))})
     win = final[0]
     podium = [{"rank": a["rank"], "first": a["first"], "last": a["last"], "nat": a["nat"],
                "time": str(a["total"]).replace(".", ",") if a["rank"] == 1 else _gap(parse_time(a["total"]) - parse_time(win["total"])),
@@ -119,8 +180,13 @@ def build(meta: dict, rows: list[dict]) -> dict:
     return {
         "hooks": hooks, "hook": "vainqueur",  # choix de Quentin (27/11) ; les deux autres restent disponibles
         "label": meta["label"], "site": meta["site"], "stages": [s.upper() for s in stages], "fem": fem,
-        "focus": [{"last": a["last"], "nat": a["nat"], "flag": flag(a["nat"]), "fr": a["nat"] == HOME, "misses": a["misses"],
-                   "arr": [arr_rank[k][a["ibu"]] for k in range(n)], "rank": o(a["rank"])} for a in focus],
+        "loops": ([_fmt_km(x) for x in meta["course"]["loops"]] if len((meta.get("course") or {}).get("loops") or []) == n + 1
+                  else [_loop_km(meta, n)] * (n + 1) if _loop_km(meta, n) else []),
+        "climb": (meta.get("course") or {}).get("climb"),
+        "focus": [{"last": a["show"], "nat": a["nat"], "flag": flag(a["nat"]), "fr": a["nat"] == HOME, "misses": a["misses"],
+                   "arr": [arr_rank[k].get(a["ibu"]) for k in range(n)], "nvis": [len(v) for v in vis],
+                   "pos": [at_pos[k][a["ibu"]] for k in range(n)], "slot": [slots[k].get(a["ibu"]) for k in range(n)]} for a in focus],
+        "nrows": max(len(v) for v in vis),
         "standings": [[{**s, "flag": flag(s["nat"]), "fr": s["nat"] == HOME} for s in st] for st in standings],
         "podium": [{**p, "flag": flag(p["nat"]), "fr": p["nat"] == HOME} for p in podium],
         "best_fr": ({"name": f"{best_fr['first']} {best_fr['last']}", "rank": o(best_fr["rank"])}
@@ -176,22 +242,23 @@ def duration(data: dict) -> float:
 
 STYLE = """
 .k2{font-size:28px;color:var(--flash);font-weight:800;letter-spacing:.12em}
-.tl{position:absolute;top:470px;left:72px;right:150px;height:70px}
+.tl{position:absolute;top:470px;left:72px;right:150px;height:90px}
+.tl .km{position:absolute;top:64px;transform:translateX(-50%);font-size:18px;font-weight:700;color:var(--grey);white-space:nowrap}
 .tl .bar{position:absolute;top:44px;left:12px;right:12px;height:6px;border-radius:3px;background:var(--bar)}
 .tl .fill{position:absolute;top:44px;left:12px;height:6px;border-radius:3px;background:var(--flash)}
 .tl .st{position:absolute;top:0;transform:translateX(-50%);font-size:17px;font-weight:800;letter-spacing:.06em;color:var(--muted);white-space:nowrap;text-align:center}
 .tl .pt{position:absolute;top:38px;width:18px;height:18px;border-radius:50%;background:var(--bg);border:4px solid var(--bar);transform:translateX(-50%)}
 .tl .pt.on{border-color:var(--flash);background:var(--flash)}
 .foot{display:none}
-.row{position:absolute;left:72px;right:150px;height:50px;border-radius:14px;display:flex;align-items:center;padding:0 18px;font-size:30px;font-weight:800;transition:none}
+.row{position:absolute;left:72px;right:150px;height:44px;border-radius:14px;display:flex;align-items:center;padding:0 18px;font-size:27px;font-weight:800;transition:none}
 .row .nm{flex:1;margin-left:14px;white-space:nowrap;overflow:hidden;text-transform:uppercase}
-.tg{width:30px;height:30px;border-radius:50%;margin-left:9px;border:3px solid var(--ink);background:transparent}
+.tg{width:26px;height:26px;border-radius:50%;margin-left:9px;border:3px solid var(--ink);background:transparent}
 .tg.hit{background:var(--ink)}
 .tg.miss{border-color:var(--flash);background:var(--flash)}
 .cnt{width:70px;text-align:right;font-size:24px;color:var(--muted);font-weight:800}
 .banner{position:absolute;left:0;right:0;top:820px;text-align:center}
 .banner span{display:inline-block;background:var(--flash);color:var(--on-flash);font-size:78px;font-weight:900;padding:14px 46px;border-radius:22px;letter-spacing:.04em}
-.sd{position:absolute;left:72px;right:150px;height:44px;display:flex;align-items:center;font-size:26px;font-weight:800;border-top:1px solid var(--line)}
+.sd{position:absolute;left:72px;right:150px;height:41px;display:flex;align-items:center;font-size:26px;font-weight:800;border-top:1px solid var(--line)}
 .sd .r{width:56px;color:var(--grey)} .sd .n{flex:1;margin-left:12px;text-transform:uppercase} .sd .g{width:150px;text-align:right}
 .sd .d{width:64px;text-align:right;font-size:20px}
 #hook{position:absolute;inset:0;z-index:20;background:var(--bg-grad, var(--bg));overflow:hidden}
@@ -206,7 +273,7 @@ def html(data: dict) -> str:
 <div id='head' style='position:absolute;top:270px;left:72px;right:150px'>
 <div class='k2'>REVIVRE LA COURSE</div>
 <div style='font-size:66px;font-weight:900;line-height:1.02;margin-top:10px'>{e(data['label'])}</div>
-<div style='font-size:36px;color:var(--grey);font-weight:700;margin-top:10px'>{e(data['site'])} <span style='font-size:22px;color:var(--muted)'>· temps officiels IBU</span></div></div>
+<div style='font-size:36px;color:var(--grey);font-weight:700;margin-top:10px'>{e(data['site'])}{(' <span style="font-size:26px;color:var(--grey)">· ' + str(data['climb']) + ' m de dénivelé positif</span>') if data.get('climb') else ''}</div></div>
 <div class='tl' id='tl'></div>
 <div id='rows'></div><div id='sds'></div>
 <div class='banner' id='banner'><span></span></div>
@@ -221,12 +288,13 @@ const tl = document.getElementById('tl');
 const W = 1080 - 72 - 150 - 24;
 tl.innerHTML = "<div class='bar'></div><div class='fill' id='fill'></div>" + labels.map((l, i) => {{
   const x = 12 + W * i / (labels.length - 1);
-  return `<div class='st' style='left:${{x}}px'>${{l}}</div><div class='pt' id='pt${{i}}' style='left:${{x}}px'></div>`; }}).join('');
+  const km = (D.loops[i] && i < labels.length - 1) ? `<div class='km' style='left:${{x + W / (labels.length - 1) / 2}}px'>${{D.loops[i]}}</div>` : '';
+  return `<div class='st' style='left:${{x}}px'>${{l}}</div><div class='pt' id='pt${{i}}' style='left:${{x}}px'></div>${{km}}`; }}).join('');
 const rows = document.getElementById('rows');
-rows.innerHTML = D.focus.map((a, i) => `<div class='row' id='r${{i}}' style='top:${{600 + i * 56}}px'>
-  <span style='font-size:30px'>${{a.flag}}</span><span class='nm' style='color:${{a.fr ? "var(--fr)" : "var(--ink)"}}'>${{a.last}}</span>
+rows.innerHTML = D.focus.map((a, i) => `<div class='row' id='r${{i}}' style='top:600px;opacity:0'>
+  <span class='ps' id='p${{i}}' style='width:58px;font-size:24px;color:var(--grey);font-weight:900'></span><span style='font-size:30px'>${{a.flag}}</span><span class='nm' style='color:${{a.fr ? "var(--fr)" : "var(--ink)"}}'>${{a.last}}</span>
   ${{[0,1,2,3,4].map(j => `<span class='tg' id='t${{i}}_${{j}}'></span>`).join('')}}<span class='cnt' id='c${{i}}'></span></div>`).join('');
-const SD_TOP = 600 + D.focus.length * 56 + 26;
+const SD_TOP = 590 + D.nrows * 49 + 18;
 function stageStart(k) {{ return T.intro + k * T.stage; }}
 function drawHook(t) {{
   const el = document.getElementById('hook'), H = D.hooks[D.hook];
@@ -281,27 +349,40 @@ function draw(t0) {{
   // stage courante
   const k = Math.min(N - 1, Math.max(0, Math.floor((t - T.intro) / T.stage)));
   const s0 = stageStart(k), inStages = t >= T.intro && t < fin0;
-  const showRows = t >= T.intro - 0.6 && t < fin0 + 0.3;
+  const showRows = t >= -0.3 && t < fin0 + 0.3;
+  const kk = t < T.intro ? 0 : k;
+  const mv = (t < T.intro || kk === 0) ? 1 : ease((t - s0 + 0.1) / 0.6);
   D.focus.forEach((a, i) => {{
     const r = document.getElementById('r' + i);
-    const appear = ease((t - (T.intro - 0.8) - i * 0.04) / 0.5);
+    const cur = a.slot[kk], prv = kk > 0 ? a.slot[kk - 1] : cur;
+    const appear = ease((t + 0.3 - (cur ?? 0) * 0.03) / 0.4);
     const out = t >= fin0 ? 1 - ease((t - fin0) / 0.4) : 1;
-    r.style.opacity = showRows ? Math.min(appear, out) : 0;
-    r.style.transform = `translateX(${{(1 - appear) * -40}}px)`;
-    const nf = D.focus.length;
-    const ts = s0 + 0.9 + 2.1 * (a.arr[k] / Math.max(1, nf - 1));
-    let shooting = inStages && t >= ts && t < ts + 1.0;
+    // visibilite : entre / sort de la liste au debut de chaque tir
+    let vis = 0;
+    if (cur != null && prv != null) vis = 1;
+    else if (cur != null) vis = mv;            // entre dans le top 10
+    else if (prv != null) vis = 1 - mv;        // sort du top 10
+    r.style.opacity = showRows ? Math.min(appear, out, vis) : 0;
+    r.style.transform = `translateX(${{(1 - Math.min(appear, vis)) * -40}}px)`;
+    const y0 = prv ?? cur ?? 0, y1 = cur ?? prv ?? 0;
+    r.style.top = (590 + 49 * (y0 + (y1 - y0) * mv)) + 'px';
+    document.getElementById('p' + i).textContent = (mv >= 0.5 || kk === 0 ? a.pos[kk] : a.pos[kk - 1]) + 'e';
+    const nf = a.nvis[kk];
+    const on = cur != null;
+    const ts = on ? s0 + 0.9 + 2.1 * (a.arr[kk] / Math.max(1, nf - 1)) : 1e9;
+    const shooting = inStages && on && t >= ts && t < ts + 1.0;
     r.style.background = shooting ? 'var(--lead-bg)' : (a.fr ? 'var(--fr-bg)' : 'var(--row)');
-    const miss = a.misses[k];
+    const miss = a.misses[kk];
     for (let j = 0; j < 5; j++) {{
       const el = document.getElementById(`t${{i}}_${{j}}`);
-      const done = inStages && t >= ts + 0.18 * j;
+      const done = inStages && on && t >= ts + 0.18 * j;
       el.className = 'tg' + (done ? (j >= 5 - miss ? ' miss' : ' hit') : '');
     }}
     let tot = 0;
-    for (let q = 0; q <= k; q++) {{ const tq = stageStart(q) + 0.9 + 2.1 * (a.arr[q] / Math.max(1, nf - 1)) + 0.9; if (t >= tq) tot += a.misses[q]; }}
+    for (let q = 0; q < kk; q++) tot += a.misses[q];
+    if (inStages && on && t >= ts + 0.9) tot += a.misses[kk];
     const c = document.getElementById('c' + i);
-    c.textContent = t >= T.intro ? (tot ? tot + ' F' : '0 F') : '';
+    c.textContent = t >= T.intro ? tot + ' F' : '';
     c.style.color = tot ? 'var(--flash)' : 'var(--muted)';
   }});
   // bandeau TIR k
@@ -319,7 +400,7 @@ function draw(t0) {{
       st.map((s, i) => {{
         const a = sk === k ? ease((since - i * 0.08) / 0.35) : 1;
         const d = s.delta > 0 ? `<span style='color:var(--up)'>▲${{s.delta}}</span>` : s.delta < 0 ? `<span style='color:var(--flash)'>▼${{-s.delta}}</span>` : '';
-        return `<div class='sd' style='top:${{SD_TOP + 38 + i * 44}}px;opacity:${{a}};transform:translateY(${{(1 - a) * 16}}px)'>
+        return `<div class='sd' style='top:${{SD_TOP + 36 + i * 41}}px;opacity:${{a}};transform:translateY(${{(1 - a) * 16}}px)'>
           <span class='r'>${{s.rank}}</span><span>${{s.flag}}</span><span class='n' style='color:${{s.fr ? "var(--fr)" : "var(--ink)"}}'>${{s.last}}</span>
           <span class='d'>${{d}}</span><span class='g'>${{s.gap || 'en tête'}}</span></div>`; }}).join('');
   }} else sds.innerHTML = '';
