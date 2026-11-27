@@ -2,8 +2,8 @@
  "posts": {
   "post:BT2627SWRLCP01SMIN": {
    "status": "error",
-   "error": "400 Client Error: Bad Request for url: https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/tdp-posts/post/BT2627SWRLCP01SMIN/20261127102656_s_01.jpg",
-   "attempts": 1
+   "error": "Supabase 400 : {\"statusCode\":\"403\",\"error\":\"Unauthorized\",\"message\":\"Invalid Compact JWS\",\"code\":\"AccessDenied\"}",
+   "attempts": 2
   }
  },
  "tg_offset": 969544652,
