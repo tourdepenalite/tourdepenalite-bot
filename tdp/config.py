@@ -24,6 +24,7 @@ SCHEDULE = {
     "duel": {"weekday": 1, "hour": 13},        # mardi 13h
     "anniversaire_hour": 9,                     # chaque jour, 9h
 }
+REEL = os.environ.get("TDP_REEL", "1") == "1"   # Reel « Revivre la course » apres chaque course individuelle
 MAX_CAROUSEL = 10            # limite Meta (doc officielle)
 MAX_FR_SLIDES = 6            # au-dela, les Francais restants vont dans une slide tableau
 FAVORITES_FORM_RACES = 5     # nb de courses prises en compte pour la forme

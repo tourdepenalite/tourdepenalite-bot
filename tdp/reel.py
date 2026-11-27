@@ -117,7 +117,7 @@ def build(meta: dict, rows: list[dict]) -> dict:
     best_fr = next((a for a in final if a["nat"] == HOME), None)
     hooks = _hooks(meta, ath, final, positions, n, t0)
     return {
-        "hooks": hooks, "hook": next(h for h in ("retournement", "vainqueur", "chiffre") if hooks.get(h)),
+        "hooks": hooks, "hook": "vainqueur",  # choix de Quentin (27/11) ; les deux autres restent disponibles
         "label": meta["label"], "site": meta["site"], "stages": [s.upper() for s in stages], "fem": fem,
         "focus": [{"last": a["last"], "nat": a["nat"], "flag": flag(a["nat"]), "fr": a["nat"] == HOME, "misses": a["misses"],
                    "arr": [arr_rank[k][a["ibu"]] for k in range(n)], "rank": o(a["rank"])} for a in focus],
@@ -238,8 +238,7 @@ function drawHook(t) {{
   const top = `<div style='position:absolute;top:300px;left:72px;font-size:28px;font-weight:800;letter-spacing:.12em;color:var(--grey)'>${{D.site.toUpperCase()}} · ${{D.label.toUpperCase()}}</div>`;
   if (D.hook === 'vainqueur') {{
     const rw = t >= 1.9;
-    const shake = rw ? Math.sin(t * 90) * 6 : 0;
-    el.innerHTML = top + `<div style='position:absolute;top:470px;left:72px;right:150px;transform:translateX(${{shake}}px);filter:${{rw ? 'blur(' + (t - 1.9) * 6 + 'px)' : 'none'}}'>
+    el.innerHTML = top + `<div style='position:absolute;top:470px;left:72px;right:150px;filter:${{rw ? 'blur(' + (t - 1.9) * 6 + 'px)' : 'none'}}'>
       <div style='font-size:60px;opacity:${{a(t / 0.3)}}'>${{H.flag}}</div>
       <div class='big' style='font-size:150px;margin-top:10px;transform:scale(${{0.8 + 0.2 * a(t / 0.35)}});transform-origin:left;opacity:${{a(t / 0.25)}}'>${{H.last}}</div>
       <div class='big' style='font-size:230px;color:var(--flash);margin-top:30px;opacity:${{a((t - 0.45) / 0.3)}}'>${{H.big}}</div>

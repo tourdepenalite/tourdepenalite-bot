@@ -186,9 +186,25 @@ def produce(st: dict, key: str, kind: str, slides: list[str], caption: str, stor
     print(f"[produit] {key} ({len(paths)} visuel(s))")
 
 
+def produce_video(st: dict, key: str, kind: str, path: pathlib.Path, caption: str, thumb_ms: int = 0):
+    stamp = dt.datetime.now().strftime("%Y%m%d%H%M%S")
+    url = publish.upload(path, f"{key.replace(':', '/')}/{stamp}_{path.name}")
+    real_now = dt.datetime.now(config.TZ)
+    expires = real_now + dt.timedelta(hours=20) if NOW < real_now - dt.timedelta(minutes=30) else NOW + dt.timedelta(hours=20)
+    st["posts"][key] = {"kind": kind, "status": "pending", "urls": [], "story_urls": [], "video_url": url, "thumb_ms": thumb_ms,
+                        "caption": caption, "created": NOW.isoformat(), "expires": expires.isoformat(), "files": [str(path)]}
+    if config.REQUIRE_APPROVAL:
+        publish.send_for_approval(key, [], caption, None, video=url)
+    else:
+        do_publish(st, key)
+    print(f"[produit] {key} (video)")
+
+
 def do_publish(st: dict, key: str):
     p = st["posts"][key]
     try:
+        if p.get("video_url"):
+            p["ig_id"] = publish.publish_reel(p["video_url"], p["caption"], p.get("thumb_ms", 0))
         if p["urls"]:
             p["ig_id"] = publish.publish_feed(p["urls"], p["caption"], p.get("alts"))
         stories = p.get("story_urls") or ([p["story_url"]] if p.get("story_url") else [])
@@ -467,6 +483,8 @@ def p_depart(st, S: Season, m: dict):
 def le(label: str) -> str:
     """« le sprint », « l'individuel »."""
     l = label.lower()
+    if l.startswith(("poursuite", "mass start")):
+        return "la " + l
     return ("l'" if l[:1] in "aeiouyéèêh" else "le ") + l
 
 
@@ -726,6 +744,30 @@ def birthdays_todo(st, S: Season, now: dt.datetime) -> list:
     return [(f"anniv:{a['ibu']}:{today.year}", lambda a=a: p_anniversaire(st, S, a)) for a in _birthdays(S, today, 1)]
 
 
+def p_reel(st, S: Season, m: dict):
+    """Reel « Revivre la course » : la course rejouee tir par tir (courses individuelles)."""
+    from . import reel
+    nr = len(config.DISCIPLINES.get(m["disc"], {}).get("stages") or [])
+    data = reel.build(m, reel.load_rows(S.c, m["race_id"], nr))
+    if not data or len(data["focus"]) < 3:
+        raise NotReady("temps par tour pas encore publies")
+    h = data["hooks"]["vainqueur"]
+    w = data["podium"][0]
+    facts = [f"Vainqueur : {w['first']} {w['last']} ({w['nat']}), {h['sub']}."]
+    for k, stt in enumerate(data["standings"]):
+        facts.append(f"Après le tir {k + 1} : 1. {stt[0]['last']}, 2. {stt[1]['last']}, 3. {stt[2]['last']}.")
+    if data["best_fr"]:
+        facts.append(f"Meilleur Français : {data['best_fr']['name']}, {data['best_fr']['rank']}.")
+    fb = [f"⏪ Revivez {le(m['label'])} {templates.a_site_txt(m['site'])}, tir par tir",
+          f"{w['last'].title()} s'impose, {h['sub'].lower()}.",
+          "À quel tir la course s'est-elle jouée ? 👇"]
+    cap = captions.generic("Reel qui rejoue la course tir par tir", "\n".join(facts), "Revivre la course", "\n".join(fb),
+                           [m["site"], f"{w['first']} {w['last']}"])
+    path = OUT / f"reel:{m['race_id']}".replace(":", "_") / "reel.mp4"
+    reel.record(data, path)
+    produce_video(st, f"reel:{m['race_id']}", "reel", path, cap["caption"], thumb_ms=1600)
+
+
 # ================================================================ boucle
 
 def finished(st: dict, key: str) -> bool:
@@ -785,6 +827,10 @@ def _run(st: dict, now: dt.datetime):
                 w["status"] = stats.status_text(payload, m["_comp"])
                 if ok or stable:
                     todo.append((f"post:{m['race_id']}", lambda m=m, p=payload: p_post_race(st, S, m, p)))
+            post = st["posts"].get(f"post:{m['race_id']}") or {}
+            if (config.REEL and not m["relay"] and -12 * 60 <= delta < -20 and post.get("status") in ("pending", "published")
+                    and not finished(st, f"reel:{m['race_id']}")):
+                todo.append((f"reel:{m['race_id']}", lambda m=m: p_reel(st, S, m)))
 
     done = S.just_ended()
     if done and at(now, config.SCHEDULE["bilan"]):
