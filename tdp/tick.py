@@ -376,6 +376,12 @@ def p_bleus(st, S: Season, ev, cat: str):
 
 # ================================================================ boucle
 
+def finished(st: dict, key: str) -> bool:
+    """Post deja traite : tout sauf une erreur qui a encore droit a un nouvel essai."""
+    p = st["posts"].get(key)
+    return bool(p) and not (p.get("status") == "error" and p.get("attempts", 1) < 3)
+
+
 def at(now, rule) -> bool:
     return now.weekday() == rule["weekday"] and now.hour >= rule["hour"]
 
@@ -410,7 +416,7 @@ def _run(st: dict, now: dt.datetime):
             delta = (m["start"] - now).total_seconds() / 60
             if not m["relay"] and 30 <= delta <= config.SCHEDULE["pre_race_minutes"]:
                 todo.append((f"pre:{m['race_id']}", lambda m=m, ev=ev: p_pre_race(st, S, m, ev)))
-            if -12 * 60 <= delta < -20 and f"post:{m['race_id']}" not in st["posts"]:
+            if -12 * 60 <= delta < -20 and not finished(st, f"post:{m['race_id']}"):
                 payload = S.c.results(m["race_id"])
                 ok = stats.is_official(payload, m["_comp"])
                 print(f"[statut] {m['race_id']} : '{stats.status_text(payload, m['_comp'])}' officiel={ok}")
@@ -431,7 +437,7 @@ def _run(st: dict, now: dt.datetime):
 
     for key, fn in todo:
         prev = st["posts"].get(key)
-        if prev and not (prev["status"] == "error" and prev.get("attempts", 1) < 3):
+        if finished(st, key):
             continue
         try:
             fn()

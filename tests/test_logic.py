@@ -52,6 +52,11 @@ def test_approval_flow(monkeypatch=None):
     assert st["posts"]["post:Y"]["status"] == "expired"
 
 
+def test_retry_after_error():
+    st = {"posts": {"a": {"status": "error", "attempts": 1}, "b": {"status": "error", "attempts": 3}, "c": {"status": "pending"}}}
+    assert not tick.finished(st, "a") and tick.finished(st, "b") and tick.finished(st, "c") and not tick.finished(st, "d")
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):
