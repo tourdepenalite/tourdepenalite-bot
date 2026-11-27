@@ -86,6 +86,24 @@
     "out/post_BT2627SWRLCP01SMIN/s_09.jpg",
     "out/post_BT2627SWRLCP01SMIN/s_10.jpg"
    ]
+  },
+  "pre:BT2627SWRLCP01SWIN": {
+   "kind": "avant_course",
+   "status": "pending",
+   "urls": [
+    "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/pre/BT2627SWRLCP01SWIN/20261127131603_s_01.jpg"
+   ],
+   "story_url": "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/pre/BT2627SWRLCP01SWIN/20261127131603_s_02.jpg",
+   "caption": "Lou Jeanmonnot attaque l'individuel de Kontiolahti en tête du général 🎯\nBiathlon, Coupe du monde : individuel femmes 15 km à Kontiolahti.\nDépart à 16:15.\nLes favorites : Lou Jeanmonnot (FRA) 1re du général, Hanna Oeberg (SWE) 2e, Lisa Vittozzi (ITA) 3e.\nQui va gagner cet individuel : Lou ou une de ses rivales ?\n\n#biathlon #kontiolahti #loujeanmonnot #biathlonfrance #coupedumondebiathlon",
+   "alts": [
+    "Tour de pénalité, statistiques de biathlon : Lou Jeanmonnot attaque l'individuel de Kontiolahti en tête du général 🎯 (visuel 1/1)"
+   ],
+   "created": "2026-11-27T14:15:54.247120+01:00",
+   "expires": "2026-11-27T16:15:00+01:00",
+   "files": [
+    "out/pre_BT2627SWRLCP01SWIN/s_01.jpg",
+    "out/pre_BT2627SWRLCP01SWIN/s_02.jpg"
+   ]
   }
  },
  "tg_offset": 969544670,
