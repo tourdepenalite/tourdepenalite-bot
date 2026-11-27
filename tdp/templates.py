@@ -177,19 +177,22 @@ def results_carousel(meta: dict, rows: list[dict], headline: str, stat: dict | N
     total = 2 + (1 if stat else 0) + len(solo) + (1 if rest else 0)
     total = min(total, config.MAX_CAROUSEL)
     h1, h2 = meta["site"], meta["label"]
-    slides = [_podium(meta, fin, headline, h1, h2, total), _top10(meta, fin, h1, h2, total)]
+    # Ordre : top 10 (avec l'accroche), stat du jour, Francais, podium en dernier.
+    slides = [_top10(meta, fin, headline, h1, h2, total)]
     if stat:
         slides.append(_stat(stat, h1, h2, len(slides) + 1, total))
+    room = config.MAX_CAROUSEL - 1 - (1 if rest else 0)   # place gardee pour le podium (et le tableau)
     for i, r in enumerate(solo):
-        if len(slides) >= config.MAX_CAROUSEL - (1 if rest else 0):
+        if len(slides) >= room:
             break
         slides.append(_athlete(meta, r, i + 1, len(home), h1, h2, len(slides) + 1, total))
-    if rest and len(slides) < config.MAX_CAROUSEL:
+    if rest and len(slides) < config.MAX_CAROUSEL - 1:
         slides.append(_home_table(meta, rest, h1, h2, len(slides) + 1, total))
+    slides.append(_podium(meta, fin, h1, h2, len(slides) + 1, total))
     return slides
 
 
-def _podium(meta, fin, headline, h1, h2, total):
+def _podium(meta, fin, h1, h2, idx, total):
     p = fin[:3]
     order = [x for x in (p[1:2] + p[0:1] + p[2:3])]
     heights = {1: 380, 2: 290, 3: 220}
@@ -210,12 +213,12 @@ def _podium(meta, fin, headline, h1, h2, total):
     if best:
         band = f"""<div style='position:absolute;top:1135px;left:72px;right:72px;background:{FR_BG};border-radius:16px;padding:22px 28px;display:flex;justify-content:space-between;align-items:center;font-size:30px;font-weight:700'>
 <span>🇫🇷&nbsp; {'Meilleure Française' if meta['cat']=='SW' else 'Meilleur Français'} : <span class='fr'>{e(best['name'])}</span></span><span class='num'>{_ord(meta, best['rank'])}{(' · ' + fmt_gap(best['behind_s'])) if best['rank']>1 else ''}</span></div>"""
-    body = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker('LE PODIUM')}{title(headline, 76 if len(headline) < 40 else 62)}</div>
+    body = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker('LE PODIUM')}{title('Le podium', 76)}</div>
 <div style='position:absolute;top:470px;left:72px;right:72px;height:640px;display:flex;gap:22px;align-items:flex-end'>{cols}</div>{band}"""
-    return page(body, h1, h2, 1, total)
+    return page(body, h1, h2, idx, total)
 
 
-def _top10(meta, fin, h1, h2, total):
+def _top10(meta, fin, headline, h1, h2, total):
     rows = ""
     for r in fin[:10]:
         fr = r["nat"] == HOME
@@ -229,9 +232,9 @@ def _top10(meta, fin, h1, h2, total):
     t = {0: "Aucun Bleu dans le top 10", 1: "1 Bleu dans le top 10"}.get(n_home, f"{n_home} Bleus dans le top 10")
     if meta["cat"] == "SW":
         t = {0: "Aucune Bleue dans le top 10", 1: "1 Bleue dans le top 10"}.get(n_home, f"{n_home} Bleues dans le top 10")
-    body = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker('LE TOP 10')}{title(t, 64)}</div>
+    body = f"""<div style='position:absolute;top:180px;left:72px;right:72px'>{kicker('LE TOP 10 · ' + t.replace(' dans le top 10', '').upper())}{title(headline, 58 if len(headline) < 34 else 46)}</div>
 <div style='position:absolute;top:360px;left:72px;right:72px'>{rows}{legend()}</div>"""
-    return page(body, h1, h2, 2, total)
+    return page(body, h1, h2, 1, total)
 
 
 def _stat(stat, h1, h2, idx, total):
