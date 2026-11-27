@@ -69,3 +69,26 @@ TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
 SUPABASE_BUCKET = os.environ.get("SUPABASE_BUCKET", "tdp-posts")
+
+
+# ----------------------------------------------------------------- themes visuels
+THEME = os.environ.get("TDP_THEME", "neige")
+FLASH = os.environ.get("TDP_FLASH")  # surcharge de la couleur flash (ex. #ff1f7a)
+THEMES = {
+    "nuit": {"mountains": False, "vars": {
+        "bg": "#0d1117", "ink": "#f2f4f7", "grey": "#9aa4b2", "muted": "#6b7686", "row": "#151b24", "chip": "#1f2733",
+        "line": "#222b37", "soft": "#c5ccd6", "fr": "#7da2ff", "fr-bg": "#16243f", "fr-strong": "#1d3fa8",
+        "flash": "#ff5a1f", "on-flash": "#0d1117", "lead-bg": "#2a1a12", "bar": "#2b3442", "up": "#3ecf8e",
+        "wm": "rgba(255,255,255,.05)"}},
+    "neige": {"mountains": True, "vars": {
+        "bg": "#f4f9fd", "bg-grad": "linear-gradient(180deg,#ffffff 0%,#eef6fc 55%,#e2eff9 100%)",
+        "ink": "#0b2545", "grey": "#557089", "muted": "#7f97ad", "row": "#e8f2fa", "chip": "#dbe9f5",
+        "line": "#d6e5f2", "soft": "#2f4a66", "fr": "#1f4fd6", "fr-bg": "#dbe6ff", "fr-strong": "#1f4fd6",
+        "flash": "#ff2e7e", "on-flash": "#ffffff", "lead-bg": "color-mix(in srgb, var(--flash) 14%, #ffffff)", "bar": "#cfe1f1", "up": "#0e9f6e",
+        "wm": "rgba(11,37,69,.05)", "mount1": "#c3dbef", "mount2": "#dbeaf6", "mount3": "#eaf3fa"}},
+}
+# Couleur flash selon la categorie : femmes, hommes, et posts generiques
+# (programme, classements croises, bilan, relais mixtes).
+FLASH_BY_CAT = {"SW": "#ff2e7e", "SM": "#7b2cff", None: "#ff5a00"}
+if FLASH:  # pour tester une couleur unique partout
+    FLASH_BY_CAT = {k: FLASH for k in FLASH_BY_CAT}
