@@ -120,6 +120,19 @@ def test_duel():
     d = stats.duel(gen, races)
     assert d["b"]["ibu"] == "B" and d["rule"] == "2e"
 
+def test_past_highlights():
+    import datetime as dt
+    t = dt.datetime(2025, 12, 18, 12)
+    row = lambda ibu, nat, rank, behind, miss: {"ibu": ibu, "name": ibu, "nat": nat, "rank": rank, "behind_s": behind,
+                                                "shots": 20, "misses_total": miss}
+    races = [({"cat": "SM", "label": "Sprint", "start": t}, [row("a", "NOR", 1, 0, 0), row("b", "FRA", 2, 12.0, 1)]),
+             ({"cat": "SM", "label": "Poursuite", "start": t}, [row("b", "FRA", 1, 0, 0), row("a", "NOR", 2, 40.5, 2)])]
+    h = {x["kind"]: x for x in stats.past_highlights(races)}
+    assert h["domination"]["sub"] == "b · Poursuite" and h["domination"]["big"] == "40,5 s"
+    assert h["tir"]["big"] == "39/40" and h["tir"]["nat"] == "FRA"
+    assert h["france"]["big"] == "1er"
+
+
 def test_birthdays():
     import datetime as dt
     races = [({"cat": "SM"}, [{"ibu": "a", "nat": "FRA", "name": "A"}, {"ibu": "b", "nat": "NOR", "name": "B"}]),

@@ -135,6 +135,8 @@ class Client:
 def _fixture(method: str, params: dict):
     base = pathlib.Path(FIXTURES)
     key = {"Seasons": "seasons", "Events": "events", "Cups": "cups"}.get(method)
+    if method == "Events" and (base / f"events_{params.get('SeasonId')}.json").exists():
+        return json.loads((base / f"events_{params.get('SeasonId')}.json").read_text())
     if key:
         return json.loads((base / f"{key}.json").read_text())
     arg = next(iter(params.values()), "")

@@ -588,6 +588,39 @@ def duel(gen: list[dict], season_races: list[tuple[dict, list[dict]]], home: str
     return {"a": a, "b": b, "gap": a["score"] - b["score"], "h2h": h2h, "rule": rule}
 
 
+def past_highlights(races: list[tuple[dict, list[dict]]], home: str = "FRA") -> list[dict]:
+    """Stats marquantes d'une etape passee : victoire la plus nette, meilleur tir du week-end, meilleur Francais."""
+    out = []
+    best = None
+    for m, rows in races:
+        fin = [r for r in rows if r["rank"]]
+        if len(fin) > 1 and fin[1]["behind_s"] and (not best or fin[1]["behind_s"] > best[2]):
+            best = (m, fin[0], fin[1]["behind_s"])
+    if best:
+        out.append({"kind": "domination", "big": f"{best[2]:.1f} s".replace(".", ","), "label": f"La victoire la plus nette (avance sur {'la' if best[0]['cat'] == 'SW' else 'le'} 2e)",
+                    "sub": f"{best[1]['name']} · {best[0]['label']}", "nat": best[1]["nat"]})
+    tot = {}
+    for m, rows in races:
+        for r in rows:
+            if r["rank"] and r["shots"]:
+                t = tot.setdefault(r["ibu"], {**r, "hits": 0, "shots_all": 0, "n": 0})
+                t["hits"] += r["shots"] - (r["misses_total"] or 0)
+                t["shots_all"] += r["shots"]
+                t["n"] += 1
+    shooters = [t for t in tot.values() if t["n"] >= 2]
+    if shooters:
+        t = max(shooters, key=lambda x: (x["hits"] / x["shots_all"], x["shots_all"]))
+        out.append({"kind": "tir", "big": f"{t['hits']}/{t['shots_all']}", "label": "Le meilleur tir du week-end",
+                    "sub": t["name"], "nat": t["nat"]})
+    fr = [(m, r) for m, rows in races for r in rows if r["nat"] == home and r["rank"]]
+    if fr:
+        m, r = min(fr, key=lambda x: (x[1]["rank"], x[0]["start"]))
+        o = ordinal_f if m["cat"] == "SW" else ordinal
+        out.append({"kind": "france", "big": o(r["rank"]), "label": "Meilleur résultat français",
+                    "sub": f"{r['name']} · {m['label']}", "nat": home})
+    return out
+
+
 def age_on(birth: dt.date, day: dt.date) -> int:
     return day.year - birth.year - ((day.month, day.day) < (birth.month, birth.day))
 

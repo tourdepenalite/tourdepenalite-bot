@@ -137,6 +137,20 @@ for n, (eid, org, short, d0, races) in enumerate(EVENTS):
     (OUT / f"Competitions_{eid}.json").write_text(json.dumps(comps))
     events_json.append({"EventId": eid, "Organizer": org, "ShortDescription": short, "StartDate": f"{d0}T00:00:00Z", "EndDate": f"{d0 + dt.timedelta(days=3)}T00:00:00Z"})
 (OUT / "events.json").write_text(json.dumps(events_json))
+(OUT / f"events_{SEASON}.json").write_text(json.dumps(events_json))
+# Saison passee : Le Grand-Bornand seulement (Kontiolahti absent -> pas de post) ; saisons plus anciennes vides.
+prev = f"{int(SEASON[:2]) - 1:02d}{int(SEASON[2:]) - 1:02d}"
+pe, pc = f"BT{prev}SWRLCP03", []
+for k, (disc, cat, off, hhmm) in enumerate([("SP", "SW", 0, "13:15"), ("SP", "SM", 1, "13:15"), ("PU", "SW", 2, "11:45"),
+                                             ("PU", "SM", 2, "14:00"), ("MS", "SW", 3, "11:30"), ("MS", "SM", 3, "14:00")]):
+    day = dt.date(2025, 12, 18) + dt.timedelta(days=off)
+    utc = (dt.datetime.fromisoformat(f"{day}T{hhmm}") - dt.timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    pc.append(race(f"{pe}{cat}{disc}{k}", disc, cat, utc)[0])
+(OUT / f"Competitions_{pe}.json").write_text(json.dumps(pc))
+(OUT / f"events_{prev}.json").write_text(json.dumps([{"EventId": pe, "Organizer": "Le Grand-Bornand", "ShortDescription": "LE GRAND-BORNAND",
+                                                      "StartDate": "2025-12-17T00:00:00Z", "EndDate": "2025-12-21T00:00:00Z"}]))
+for k in (2, 3):
+    (OUT / f"events_{int(SEASON[:2]) - k:02d}{int(SEASON[2:]) - k:02d}.json").write_text("[]")
 (OUT / "seasons.json").write_text(json.dumps([{"SeasonId": SEASON, "IsCurrent": True, "SortOrder": 99}]))
 (OUT / "cups.json").write_text(json.dumps([{"CupId": f"BT{SEASON}SWRLCP__{c}TS", "CatId": c, "Level": 1, "DisciplineId": "TS"} for c in ("SM", "SW")]))
 for cat in ("SM", "SW"):

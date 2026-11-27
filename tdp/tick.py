@@ -628,6 +628,70 @@ def p_duel(st, S: Season, ev):
     produce(st, f"duel:{ev['EventId']}", "duel", slides, cap["caption"])
 
 
+def _season_minus(sid: str, k: int) -> str:
+    return f"{int(sid[:2]) - k:02d}{int(sid[2:]) - k:02d}"
+
+
+def last_visit(S: Season, ev, max_back: int = 3):
+    """Derniere etape au meme site sur les `max_back` saisons precedentes : (saison, k, courses) ou None."""
+    key = stats.race_meta({}, ev)["site_key"]
+    if not key:
+        return None
+    for k in range(1, max_back + 1):
+        sid = _season_minus(S.id, k)
+        try:
+            evs = S.c.events(sid, config.WC_LEVEL)
+        except Exception:
+            continue
+        for pev in evs:
+            if stats.race_meta({}, pev)["site_key"] != key:
+                continue
+            races = []
+            for c in S.c.competitions(pev["EventId"]):
+                m = stats.race_meta(c, pev)
+                if m["relay"] or not m["start"]:
+                    continue
+                try:
+                    rows = stats.individual_results(S.c, m["race_id"], S.c.results(m["race_id"], cache_s=30 * 86400))
+                except Exception:
+                    continue
+                if any(r["rank"] for r in rows):
+                    races.append((m, rows))
+            if races:
+                return sid, k, sorted(races, key=lambda x: x[0]["start"])
+    return None
+
+
+def p_an_dernier(st, S: Season, ev):
+    found = last_visit(S, ev)
+    if not found:
+        print(f"[an dernier] pas de donnees sur 3 saisons pour {ev.get('Organizer')}")
+        return
+    sid, k, races = found
+    site = races[0][0]["site"]
+    label = f"20{sid[:2]}-{sid[2:]}"
+    by_cat = {}
+    facts = []
+    for m, rows in races:
+        fin = [r for r in rows if r["rank"]]
+        fr = next((r for r in fin if r["nat"] == config.HOME_NAT), None)
+        by_cat.setdefault(m["cat"], []).append((m, fin[:3], fr))
+        facts.append(f"{m['label']} : 1. {fin[0]['name']} ({fin[0]['nat']})"
+                     + (f", 2. {fin[1]['name']} ({fin[1]['nat']})" if len(fin) > 1 else "")
+                     + (f", 3. {fin[2]['name']} ({fin[2]['nat']})" if len(fin) > 2 else "")
+                     + (f" ; meilleur Français : {fr['name']}, {fr['rank']}e" if fr else "") + ".")
+    hl = stats.past_highlights(races, config.HOME_NAT)
+    facts += [f"{h['label']} : {h['big']} ({h['sub']})." for h in hl]
+    when = "l'an dernier" if k == 1 else f"la dernière fois (saison {label})"
+    facts.insert(0, f"Ces résultats datent de la saison {label}, {when} {templates.a_site_txt(site)}. Ce ne sont PAS des résultats de cette saison.")
+    fb = [f"🔙 {'L’an dernier' if k == 1 else 'La dernière fois'} {templates.a_site_txt(site)} (saison {label})",
+          "Les podiums femmes et hommes et les chiffres à retenir, dans le carrousel 👉",
+          "Qui va faire mieux cette année ?"]
+    cap = captions.generic("rappel de la dernière étape au même site (saison passée)", "\n".join(facts),
+                           "L'an dernier ici", "\n".join(fb), [site])
+    produce(st, f"ici:{ev['EventId']}", "an_dernier", templates.last_time(site, label, k == 1, by_cat, hl), cap["caption"])
+
+
 def _birthdays(S: Season, start: dt.date, days: int) -> list[dict]:
     races = S.finished_races()
     births = stats.birth_map(S.c, [m["race_id"] for m, _ in races])
@@ -692,6 +756,8 @@ def _run(st: dict, now: dt.datetime):
         first, _ = S.race_span(up)
         if first and (first.date() - now.date()).days <= 2:
             snapshot(st, S, up)  # juste avant l'etape : base du "qui monte, qui descend"
+        if at(now, config.SCHEDULE["an_dernier"]):
+            todo.append((f"ici:{up['EventId']}", lambda: p_an_dernier(st, S, up)))
         if at(now, config.SCHEDULE["classement"]):
             todo.append((f"gen:{up['EventId']}", lambda: p_classement(st, S, up)))
 

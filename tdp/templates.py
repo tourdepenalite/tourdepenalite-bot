@@ -736,6 +736,45 @@ def duel(cat: str, site: str, d: dict, idx: int, total: int) -> str:
     return page(body, "Le duel", f"Après {apres_site(site)}", idx, total)
 
 
+def last_time(site: str, season_label: str, previous: bool, by_cat: dict, highlights: list[dict]) -> list[str]:
+    """Carrousel « L'an dernier ici » : podiums femmes, podiums hommes, stats marquantes."""
+    kick = f"L'AN DERNIER · {season_label}" if previous else f"LA DERNIÈRE FOIS · {season_label}"
+    head = ("L'an dernier " if previous else "La dernière fois ") + a_site_txt(site)
+    cats = [c for c in ("SW", "SM") if by_cat.get(c)]
+    total = len(cats) + (1 if highlights else 0)
+    slides = []
+    for i, cat in enumerate(cats):
+        set_cat(cat)
+        fem = cat == "SW"
+        blocks = ""
+        for m, podium, fr in by_cat[cat]:
+            names = "".join(
+                f"<div style='display:flex;align-items:center;gap:16px;font-size:34px;font-weight:{900 if k == 0 else 700};padding:6px 0'>"
+                f"<span style='width:40px;color:{O if k == 0 else GREY};font-weight:900'>{k + 1}</span>{nat(r['nat'], 36)}"
+                f"<span class='{'fr' if r['nat'] == HOME else ''}' style='flex:1'>{e(r['name'])}</span></div>" for k, r in enumerate(podium))
+            o = ordinal_f if fem else ordinal
+            fr_line = (f"<div style='font-size:26px;color:var(--soft);font-weight:700;margin-top:6px'>{flag(HOME)} {'Meilleure Française' if fem else 'Meilleur Français'} : "
+                       f"{e(fr['name'])}, {o(fr['rank'])}</div>") if fr and fr["rank"] > 3 else ""
+            blocks += (f"<div style='padding:20px 0;border-top:1px solid var(--line)'><div style='font-size:25px;color:{O};font-weight:800;"
+                       f"letter-spacing:.08em;margin-bottom:4px'>{e(m['label'].upper())}</div>{names}{fr_line}</div>")
+        body = f"""<div style='position:absolute;top:180px;left:72px;right:72px'>{kicker(kick)}{title(head, 58)}
+<div style='font-size:28px;color:var(--soft);font-weight:700;margin-top:8px'>Les podiums {'femmes' if fem else 'hommes'}</div></div>
+<div style='position:absolute;top:410px;left:72px;right:72px'>{blocks}</div>"""
+        slides.append(page(body, site, "L'an dernier" if previous else "La dernière fois", i + 1, total))
+    if highlights:
+        set_cat(None)
+        cards = "".join(
+            f"<div style='background:var(--row);border-radius:26px;padding:30px 36px;margin-bottom:20px'>"
+            f"<div style='font-size:24px;color:{GREY};font-weight:800;letter-spacing:.08em'>{e(h['label'].upper())}</div>"
+            f"<div class='num' style='font-size:84px;font-weight:900;color:{O};line-height:1.05;margin-top:6px'>{e(h['big'])}</div>"
+            f"<div style='display:flex;align-items:center;gap:14px;font-size:30px;font-weight:800;margin-top:6px'>{nat(h['nat'], 32)}"
+            f"<span class='{'fr' if h['nat'] == HOME else ''}'>{e(h['sub'])}</span></div></div>" for h in highlights)
+        body = f"""<div style='position:absolute;top:180px;left:72px;right:72px'>{kicker(kick)}{title('Les chiffres à retenir', 64)}</div>
+<div style='position:absolute;top:380px;left:72px;right:72px'>{cards}</div>"""
+        slides.append(page(body, site, "L'an dernier" if previous else "La dernière fois", total, total))
+    return slides
+
+
 def story_anniversaire(a: dict, card: dict, gen_rank: int | None, gen_score: int) -> str:
     """Story du jour de l'anniversaire : prenom, age, 3 stats de saison."""
     set_cat(a["cat"])
