@@ -797,3 +797,34 @@ def story_anniversaire(a: dict, card: dict, gen_rank: int | None, gen_score: int
 <div style='position:absolute;top:1030px;left:72px;right:72px'>
 <div style='font-size:26px;color:{GREY};font-weight:800;letter-spacing:.08em;margin-bottom:16px'>SA SAISON EN CHIFFRES</div>{stats_html}</div>"""
     return page(body, "Anniversaire", e(a["first"]), height=1920)
+
+
+def story_poursuite(meta: dict, mv: dict) -> str:
+    """Story apres poursuite : remontee du jour (fleche verte), chute du jour (fleche rouge)."""
+    set_cat(meta.get("cat"))
+    fem = meta.get("cat") == "SW"
+    o = ordinal_f if fem else ordinal
+    RED = "#e5484d"
+
+    def card(label, r, color, arrow, top, note=""):
+        if not r:
+            return ""
+        size = 58 if len(r["last"]) < 11 else 46
+        fails = r["misses_total"] or 0
+        return f"""<div style='position:absolute;top:{top}px;left:72px;right:72px;background:var(--row);border-radius:30px;padding:28px 40px'>
+<div style='font-size:26px;color:{color};font-weight:800;letter-spacing:.08em'>{e(label)}</div>
+<div style='display:flex;align-items:center;gap:18px;margin-top:16px'>{nat(r['nat'], 44)}
+<div style='flex:1'><div style='font-size:28px;color:{GREY};font-weight:600'>{e(r['first'])}</div>
+<div class='{'fr' if r['nat'] == HOME else ''}' style='font-size:{size}px;font-weight:900;line-height:1;text-transform:uppercase'>{e(r['last'])}</div></div>
+<div style='text-align:right;color:{color};font-weight:900'><div style='font-size:60px;line-height:1'>{arrow}</div><div class='num' style='font-size:54px'>{'+' if r['gain'] > 0 else '−'}{abs(r['gain'])}</div></div></div>
+<div class='num' style='font-size:34px;font-weight:800;margin-top:16px'>Parti{'e' if fem else ''} {o(r['start'])} → arrivé{'e' if fem else ''} {o(r['rank'])}</div>
+<div style='font-size:28px;color:var(--soft);font-weight:700;margin-top:8px'>{fails} faute{'s' if fails > 1 else ''} au tir{e(note)}</div></div>"""
+    down_note = " : la cause probable" if (mv.get("down") or {}).get("misses_total", 0) >= 4 else ""
+    fr = mv.get("fr")
+    body = f"""<div style='position:absolute;top:270px;left:72px;right:72px'>{kicker('LA POURSUITE EN UNE IMAGE')}
+<div style='font-size:40px;font-weight:800;margin-top:10px;color:var(--soft)'>{e(meta['label'])} · {e(meta['site'])}</div></div>
+{card('🚀 LA REMONTÉE DU JOUR', mv.get('up'), 'var(--up)', '▲', 400)}
+{card('📉 LA CHUTE DU JOUR', mv.get('down'), RED, '▼', 770, down_note)}
+{card('🇫🇷 ' + ('LA REMONTÉE FRANÇAISE'), fr, 'var(--fr)', '▲', 1140) if fr else ''}"""
+    return page(body, meta["site"], "Poursuite", height=1920)
+

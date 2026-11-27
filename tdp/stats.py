@@ -642,3 +642,19 @@ def birthdays(races: list[tuple[dict, list[dict]]], births: dict[str, dt.date], 
                                                        and not (d.year % 4 == 0 and (d.year % 100 or d.year % 400 == 0))):
                 out.append({**a, "day": d, "age": age_on(b, d) if (b.month, b.day) != (2, 29) else d.year - b.year})
     return sorted(out, key=lambda x: (x["day"], x["name"]))
+
+
+def pursuit_moves(rows: list[dict], start_ranks: dict[str, int], home: str = "FRA", min_fr: int = 10) -> dict:
+    """Poursuite : remontee et chute du jour (place de depart = classement du sprint).
+    Seuls les athletes classes comptent : un abandon n'est pas une chute."""
+    moves = [{**r, "start": start_ranks[r["ibu"]], "gain": start_ranks[r["ibu"]] - r["rank"]}
+             for r in rows if r["rank"] and r["ibu"] in start_ranks]
+    if not moves:
+        return {}
+    up = max(moves, key=lambda x: (x["gain"], -x["rank"]))
+    down = min(moves, key=lambda x: (x["gain"], x["rank"]))
+    fr = max((x for x in moves if x["nat"] == home), key=lambda x: (x["gain"], -x["rank"]), default=None)
+    return {"up": up if up["gain"] > 0 else None,
+            "down": down if down["gain"] < 0 else None,
+            "fr": fr if fr and fr["gain"] >= min_fr and fr["ibu"] != up["ibu"] else None}
+
