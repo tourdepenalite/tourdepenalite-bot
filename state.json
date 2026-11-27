@@ -24,7 +24,7 @@
   },
   "pre:BT2627SWRLCP01SMIN": {
    "kind": "avant_course",
-   "status": "pending",
+   "status": "published",
    "urls": [
     "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/pre/BT2627SWRLCP01SMIN/20261127123824_s_01.jpg"
    ],
@@ -38,10 +38,13 @@
    "files": [
     "out/pre_BT2627SWRLCP01SMIN/s_01.jpg",
     "out/pre_BT2627SWRLCP01SMIN/s_02.jpg"
-   ]
+   ],
+   "ig_id": "18103458182430235",
+   "ig_story_id": "17879007183587279",
+   "published": "2026-11-27T13:40:50.598754+01:00"
   }
  },
- "tg_offset": 969544669,
+ "tg_offset": 969544670,
  "snapshots": {
   "BT2627SWRLCP01": {
    "SM": {
