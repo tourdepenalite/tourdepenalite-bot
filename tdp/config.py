@@ -73,6 +73,13 @@ TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
 SUPABASE_BUCKET = os.environ.get("SUPABASE_BUCKET", "tdp-posts")
+# Musiques des Reels : bucket PRIVE (licence Pixabay : pas de diffusion du fichier seul, donc ni dans le depot
+# public ni dans le bucket public). start = debut sur un temps fort, step = decalage d'un Reel a l'autre
+# (un multiple de mesures), end = fin de la partie energique du morceau.
+MUSIC_BUCKET = os.environ.get("TDP_MUSIC_BUCKET", "tdp-assets")
+MUSIC = [
+    {"path": "musique/the_mountain.mp3", "start": 10.03, "step": 10.03, "end": 112.0},
+]
 
 
 # ----------------------------------------------------------------- themes visuels
