@@ -16,6 +16,7 @@ WATERMARK = os.environ.get("TDP_WATERMARK", "0") == "1"
 # Grille editoriale (heure de Paris)
 SCHEDULE = {
     "programme": {"weekday": 2, "hour": 9},    # mercredi 9h
+    "an_dernier": {"weekday": 2, "hour": 12},  # mercredi 12h
     "classement": {"weekday": 2, "hour": 15},  # mercredi 15h
     "pre_race_minutes": 120,                    # 2 h avant le depart
     "bilan": {"weekday": 0, "hour": 9},        # lundi 9h
