@@ -29,8 +29,11 @@ def test_movers():
 
 
 def test_official_status():
-    assert stats.is_official({"Competition": {"StatusText": "Official"}})
-    assert not stats.is_official({"Competition": {"StatusText": "Unofficial"}})
+    res = {"Results": [{"Rank": str(i)} for i in range(1, 6)]}
+    assert stats.is_official({**res, "Competition": {"StatusText": "Official Results"}})
+    assert not stats.is_official({**res, "Competition": {"StatusText": "Unofficial Results"}})
+    assert not stats.is_official({**res, "Competition": {"StatusText": "Official Start List"}})
+    assert not stats.is_official({"Results": [], "Competition": {"StatusText": "Official Results"}})
 
 
 def test_approval_flow(monkeypatch=None):

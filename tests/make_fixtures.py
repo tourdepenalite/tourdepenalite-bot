@@ -79,7 +79,7 @@ def race(race_id, disc, cat, start_iso):
                      "Shootings": "+".join(map(str, r["misses"])), "ShootingTotal": str(sum(r["misses"]))})
         for k, v in (("CRST", r["ski"]), ("RNGT", r["rng"]), ("STTM", r["shoot"])):
             ana[k].append({"IBUId": a["IBUId"], "TotalTime": fmt(v), "IsTeam": False})
-    comp = {"RaceId": race_id, "DisciplineId": disc, "catId": cat, "ShortDescription": f"{'Men' if cat=='SM' else 'Women'} {km}km {disc}", "km": km, "StartTime": start_iso, "StatusText": "Official"}
+    comp = {"RaceId": race_id, "DisciplineId": disc, "catId": cat, "ShortDescription": f"{'Men' if cat=='SM' else 'Women'} {km}km {disc}", "km": km, "StartTime": start_iso, "StatusText": "Official Results"}
     (OUT / f"Results_{race_id}.json").write_text(json.dumps({"Competition": comp, "Results": rows}))
     for k, v in ana.items():
         (OUT / f"AnalyticResults_{race_id}_{k}.json").write_text(json.dumps({"Results": v}))
@@ -93,7 +93,7 @@ def relay(race_id, cat, start_iso):
     t0 = 4400
     rows = [{"IsTeam": True, "Nat": n, "Name": n, "Rank": str(i + 1), "TotalTime": fmt(t0 + i * 17.3), "Behind": "" if i == 0 else "+" + fmt(i * 17.3).lstrip("0:"),
              "ShootingTotal": f"{rnd.randint(0,1)}+{rnd.randint(2,7)}"} for i, n in enumerate(nats)]
-    comp = {"RaceId": race_id, "DisciplineId": "RL", "catId": cat, "ShortDescription": f"{'Women' if cat=='SW' else 'Men'} 4x6km Relay", "StartTime": start_iso, "StatusText": "Official"}
+    comp = {"RaceId": race_id, "DisciplineId": "RL", "catId": cat, "ShortDescription": f"{'Women' if cat=='SW' else 'Men'} 4x6km Relay", "StartTime": start_iso, "StatusText": "Official Results"}
     (OUT / f"Results_{race_id}.json").write_text(json.dumps({"Competition": comp, "Results": rows}))
     for k in ("CRST", "RNGT", "STTM"):
         (OUT / f"AnalyticResults_{race_id}_{k}.json").write_text(json.dumps({"Results": []}))
