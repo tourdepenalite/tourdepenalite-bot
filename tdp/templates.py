@@ -402,9 +402,9 @@ def standings_slide(label: str, rows: list[dict], headline: str, h2: str, idx: i
 
 # ================================================================ LUNDI
 
-def bilan(site: str, headline: str, figures: list[tuple[str, str]], mv: dict[str, dict]) -> list[str]:
+def bilan(site: str, headline: str, figures: list[tuple[str, str]], mv: dict[str, dict], pen: dict | None = None) -> list[str]:
     set_cat(None)
-    total = 1 + len(mv)
+    total = 1 + len(mv) + (2 if pen and pen["week"]["nations"] else 0)
     grid = "".join(f"<div style='background:{ROW};border-radius:18px;padding:30px'><div style='font-size:84px;font-weight:900;color:{O}'>{e(v)}</div><div style='font-size:28px;color:var(--soft);font-weight:600'>{e(k)}</div></div>" for v, k in figures[:4])
     s1 = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker('LE BILAN')}{title(headline, 80 if len(headline)<34 else 64)}</div>
 <div style='position:absolute;top:540px;left:72px;right:72px;display:grid;grid-template-columns:1fr 1fr;gap:20px'>{grid}</div>"""
@@ -425,6 +425,8 @@ def bilan(site: str, headline: str, figures: list[tuple[str, str]], mv: dict[str
 <div style='font-size:24px;color:var(--up);font-weight:800;letter-spacing:.08em;margin-bottom:12px'>EN HAUSSE</div>{ups or "<div style='color:var(--muted);font-size:28px'>Aucune progression dans le top 30</div>"}
 <div style='font-size:24px;color:{O};font-weight:800;letter-spacing:.08em;margin:26px 0 12px'>EN BAISSE</div>{downs or "<div style='color:var(--muted);font-size:28px'>Aucune baisse dans le top 30</div>"}</div>"""
         slides.append(page(s, "Classement général", config.CATEGORIES[cat], i + 2, total))
+    if pen and pen["week"]["nations"]:
+        slides += _penalty_slides(site, pen, len(slides), total)
     return slides
 
 
@@ -632,3 +634,47 @@ def story_sans_faute(meta: dict, clean: list[dict], best_shooters: list[dict]) -
 <div style='font-size:34px;color:{GREY};font-weight:700;margin-top:14px'>{e(meta['label'])} · {e(sub)}</div></div>
 <div style='position:absolute;top:640px;left:72px;right:72px'>{rows}{more}</div>"""
     return page(body, meta["site"], "Sans-faute", height=1920)
+
+
+def _fmt_pen(tours: int, minutes: float) -> str:
+    parts = []
+    if tours:
+        parts.append(f"{tours} tour{'s' if tours > 1 else ''}")
+    if minutes:
+        m = round(minutes, 2)
+        parts.append(f"{m:g} min".replace(".", ","))
+    return " + ".join(parts) or "0"
+
+
+def _penalty_slides(site: str, pen: dict, done: int, total: int) -> list[str]:
+    """Compteur de tours de penalite : par nation, puis par athlete (semaine + saison)."""
+    set_cat(None)
+    week, season = pen["week"], pen["season"]
+    s_nat = {n["nat"]: n for n in season["nations"]}
+    s_ath = {a["ibu"]: a for a in season["athletes"]}
+    nations = week["nations"][:8]
+    if not any(n["nat"] == HOME for n in nations):
+        nations += [n for n in week["nations"] if n["nat"] == HOME]
+    has_min = any(n["minutes"] for n in week["nations"])
+
+    def row(flag_code, label, wk, ss, fr):
+        return (f"<div style='display:flex;align-items:center;padding:0 22px;height:76px;border-radius:12px;margin-bottom:8px;"
+                f"background:{FR_BG if fr else ROW}'>{nat(flag_code, 34)}"
+                f"<span class='{'fr' if fr else ''}' style='flex:1;margin-left:16px;font-size:30px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>{e(label)}</span>"
+                f"<span class='num' style='width:250px;text-align:right;font-size:28px;font-weight:900;color:{O}'>{e(wk)}</span>"
+                f"<span class='num' style='width:200px;text-align:right;font-size:24px;font-weight:700;color:var(--soft)'>{e(ss)}</span></div>")
+    head = (f"<div style='display:flex;justify-content:flex-end;padding:0 22px 10px;font-size:20px;color:{MUTED};font-weight:800;letter-spacing:.08em'>"
+            f"<span style='width:250px;text-align:right'>CE WEEK-END</span><span style='width:200px;text-align:right'>SAISON</span></div>")
+    note = ("<div style='font-size:22px;color:" + MUTED + ";margin-top:10px'>En individuel, pas de tour : chaque faute ajoute du temps (en minutes).</div>"
+            if has_min else "")
+    rows = "".join(row(n["nat"], NAT_FR.get(n["nat"], n["nat"]), _fmt_pen(n["tours"], n["minutes"]),
+                       _fmt_pen(s_nat.get(n["nat"], n)["tours"], s_nat.get(n["nat"], n)["minutes"]), n["nat"] == HOME) for n in nations)
+    s1 = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker('LE COMPTEUR DE TOURS DE PÉNALITÉ')}{title('Par nation', 66)}</div>
+<div style='position:absolute;top:360px;left:72px;right:72px'>{head}{rows}{note}</div>"""
+    ath = week["athletes"][:7]
+    home = [a for a in week["athletes"] if a["nat"] == HOME and a not in ath][:2]
+    rows2 = "".join(row(a["nat"], a["name"], _fmt_pen(a["tours"], a["minutes"]),
+                        _fmt_pen(s_ath.get(a["ibu"], a)["tours"], s_ath.get(a["ibu"], a)["minutes"]), a["nat"] == HOME) for a in ath + home)
+    s2 = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker('LE COMPTEUR DE TOURS DE PÉNALITÉ')}{title('Les plus pénalisés', 66)}</div>
+<div style='position:absolute;top:360px;left:72px;right:72px'>{head}{rows2}{note}</div>"""
+    return [page(s1, site, "Bilan de l'étape", done + 1, total), page(s2, site, "Bilan de l'étape", done + 2, total)]

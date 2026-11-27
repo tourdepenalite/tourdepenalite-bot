@@ -91,6 +91,17 @@ def test_in_form():
     assert stats.in_form([({}, [r("x", 1, wc=50)])], set())["pts"] == 50   # points IBU prioritaires
 
 
+def test_penalty_counts():
+    races = [({"disc": "SP", "penalty_s": 0}, [{"ibu": "a", "rank": 1, "misses_total": 2, "nat": "FRA", "name": "A"},
+                                              {"ibu": "b", "rank": 2, "misses_total": 0, "nat": "NOR", "name": "B"}]),
+             ({"disc": "IN", "penalty_s": 60}, [{"ibu": "a", "rank": 3, "misses_total": 1, "nat": "FRA", "name": "A"}])]
+    r = stats.penalty_counts(races, [({}, [{"nat": "NOR", "penalties": 1}])])
+    assert r["nations"][0] == {"nat": "FRA", "tours": 2, "minutes": 1.0}       # individuel = minutes, pas de tour
+    assert r["nations"][1]["tours"] == 1                                      # tour de relais compte pour la nation
+    a = r["athletes"][0]
+    assert (a["tours"], a["minutes"], a["fautes"]) == (2, 1.0, 3)
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):
