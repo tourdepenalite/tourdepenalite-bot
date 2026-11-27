@@ -111,19 +111,22 @@ def nat(n, size=40):
 
 
 def shots(misses: list[int], size=20, gap=18, margin=6) -> str:
-    groups = []
-    bw = 3 if size >= 14 else 2
+    """Nombre de fautes par tir, comme l'application IBU : une pastille par passage.
+    L'API ne donne pas la cible manquee, seulement le nombre de fautes du passage."""
+    d = max(24, int(size * 1.7))
+    sp = max(6, min(gap, 12))
+    out = []
     for m in misses:
-        groups.append("".join(f"<span class='t{' miss' if i >= 5 - m else ''}' style='width:{size}px;height:{size}px;margin-right:{margin}px;border-width:{bw}px'></span>" for i in range(5)))
-    sep = f"<span style='display:inline-block;width:{gap}px'></span>"
-    return f"<span style='display:inline-flex;white-space:nowrap;align-items:center'>{sep.join(groups)}</span>"
+        bg, fg = ("var(--flash)", "var(--on-flash)") if m else ("var(--ink)", "var(--bg)")
+        out.append(f"<span style='display:inline-flex;align-items:center;justify-content:center;width:{d}px;height:{d}px;"
+                   f"border-radius:50%;background:{bg};color:{fg};font-weight:900;font-size:{int(d * .58)}px;"
+                   f"line-height:1;margin-right:{sp}px'>{m}</span>")
+    return f"<span style='display:inline-flex;white-space:nowrap;align-items:center'>{''.join(out)}</span>"
 
 
 def legend():
-    return (f"<div style='font-size:22px;color:{MUTED};margin-top:14px;display:flex;gap:28px;align-items:center'>"
-            f"<span><span class='t' style='width:18px;height:18px'></span>cible blanchie</span>"
-            f"<span><span class='t miss' style='width:18px;height:18px'></span>faute</span>"
-            f"<span>Ordre des fautes dans la série non publié</span></div>")
+    return (f"<div style='font-size:22px;color:{MUTED};margin-top:14px;display:flex;gap:14px;align-items:center'>"
+            f"{shots([0, 1], 13)}<span>nombre de fautes à chaque passage au tir</span></div>")
 
 
 def _ord(meta, n):
@@ -194,7 +197,7 @@ def _podium(meta, fin, headline, h1, h2, total):
 <div style='font-size:28px;color:{GREY};font-weight:600'>{e(r['first'])}</div>
 <div class='{cls}' style='font-size:{44 if len(r['last'])<12 else 34}px;font-weight:900;text-transform:uppercase;margin:2px 0 12px;text-align:center;line-height:1'>{e(r['last'])}</div>
 {nat(r['nat'], 48)}<div class='num' style='font-size:26px;margin:14px 0 6px;font-weight:700'>{e(val)}</div>
-<div style='margin-bottom:22px'>{shots(r['misses'], 18) if len(r['misses'])<=2 else shots(r['misses'], 10, 9, 3)}</div>
+<div style='margin-bottom:22px'>{shots(r['misses'], 20, 10)}</div>
 <div style='width:100%;height:{heights.get(r['rank'],200)}px;background:{bg};border-radius:18px 18px 0 0;display:flex;justify-content:center;padding-top:24px;font-size:120px;font-weight:900;color:{fg}'>{r['rank']}</div></div>"""
     best = next((r for r in fin if r["nat"] == HOME), None)
     band = ""
@@ -214,7 +217,7 @@ def _top10(meta, fin, h1, h2, total):
         rows += f"""<div style='display:flex;align-items:center;padding:0 24px;height:74px;border-radius:12px;margin-bottom:8px;background:{FR_BG if fr else ROW}'>
 <div style='width:70px;font-size:34px;font-weight:900;color:{O if r['rank']<=3 else GREY}'>{r['rank']}</div>
 <div class='{'fr' if fr else ''}' style='flex:1;font-size:32px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>{e(r['name'])}</div>
-<span style='margin-right:24px'>{nat(r['nat'])}</span><div style='width:{250 if len(r['misses'])<=2 else 290}px'>{shots(r['misses'], 17) if len(r['misses'])<=2 else shots(r['misses'], 11, 10, 3)}</div>
+<span style='margin-right:24px'>{nat(r['nat'])}</span><div style='width:{250 if len(r['misses'])<=2 else 290}px'>{shots(r['misses'], 18, 10)}</div>
 <div class='num' style='width:150px;text-align:right;font-size:30px;font-weight:700'>{e(val)}</div></div>"""
     n_home = len([r for r in fin[:10] if r["nat"] == HOME])
     t = {0: "Aucun Bleu dans le top 10", 1: "1 Bleu dans le top 10"}.get(n_home, f"{n_home} Bleus dans le top 10")
@@ -242,7 +245,7 @@ def _athlete(meta, r, i, n, h1, h2, idx, total):
     for k, m in enumerate(r["misses"]):
         label = stages[k] if k < len(stages) else f"Tir {k+1}"
         bouts += f"""<div style='display:flex;justify-content:space-between;align-items:center;padding:{18 if len(r['misses'])>2 else 22}px 0;border-top:1px solid var(--line)'>
-<span style='font-size:30px;font-weight:700;width:200px'>{e(label)}</span><span>{shots([m], 40)}</span>
+<span style='font-size:30px;font-weight:700;width:200px'>{e(label)}</span><span>{shots([m], 34 if len(r['misses']) <= 2 else 26)}</span>
 <span style='font-size:30px;font-weight:800;width:90px;text-align:right;color:{O if m else 'var(--ink)'}'>{5-m}/5</span></div>"""
 
     def card(t, v, rk):
@@ -275,7 +278,7 @@ def _athlete(meta, r, i, n, h1, h2, idx, total):
 def _home_table(meta, rest, h1, h2, idx, total):
     rows = "".join(f"""<div style='display:flex;align-items:center;padding:22px 0;border-top:1px solid var(--line);font-size:32px'>
 <span style='width:110px;font-weight:900;color:{GREY}'>{_ord(meta, r['rank'])}</span><span class='fr' style='flex:1;font-weight:800'>{e(r['name'])}</span>
-<span style='width:300px'>{shots(r['misses'],14,12,4) if len(r['misses'])<=2 else shots(r['misses'],10,8,3)}</span><span class='num' style='width:160px;text-align:right'>{e(fmt_gap(r['behind_s']))}</span></div>""" for r in rest)
+<span style='width:300px'>{shots(r['misses'], 16, 8)}</span><span class='num' style='width:160px;text-align:right'>{e(fmt_gap(r['behind_s']))}</span></div>""" for r in rest)
     body = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker('LES AUTRES BLEUS' if meta['cat']!='SW' else 'LES AUTRES BLEUES', 'var(--fr)')}{title('Le reste de l’équipe', 64)}</div>
 <div style='position:absolute;top:380px;left:72px;right:72px'>{rows}</div>"""
     return page(body, h1, h2, idx, total)
