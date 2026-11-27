@@ -138,7 +138,7 @@ class Season:
 # ================================================================ production d'un post
 
 def produce(st: dict, key: str, kind: str, slides: list[str], caption: str, story: str | None = None,
-            expires: dt.datetime | None = None, alts: list[str] | None = None):
+            expires: dt.datetime | None = None, alts: list[str] | None = None, auto: bool = False):
     folder = OUT / key.replace(":", "_")
     paths = render(slides + ([story] if story else []), folder, "s")
     stamp = dt.datetime.now().strftime("%Y%m%d%H%M%S")
@@ -156,7 +156,7 @@ def produce(st: dict, key: str, kind: str, slides: list[str], caption: str, stor
             "expires": (expires or NOW + dt.timedelta(hours=20)).isoformat(),
             "files": [str(p) for p in paths]}
     st["posts"][key] = post
-    if config.REQUIRE_APPROVAL:
+    if config.REQUIRE_APPROVAL and not auto:
         publish.send_for_approval(key, urls, caption, story_url)
     else:
         do_publish(st, key)
@@ -298,7 +298,7 @@ def p_programme(st, S: Season, ev):
           f"{len(metas)} courses en {len(days)} jours, heures françaises dans le carrousel 👉",
           "Enregistrez le post pour ne rien manquer. Quelle course attendez-vous le plus ?"]
     cap = captions.generic("programme du week-end", "\n".join(facts), "", "\n".join(fb), [site, "programme"])
-    produce(st, f"prog:{ev['EventId']}", "programme", slides, cap["caption"])
+    produce(st, f"prog:{ev['EventId']}", "programme", slides, cap["caption"], templates.story_programme(site, day_list))
 
 
 def snapshot(st, S: Season, ev):
@@ -382,6 +382,24 @@ def p_pre_race(st, S: Season, m: dict, ev):
     produce(st, f"pre:{m['race_id']}", "avant_course", [feed], cap["caption"], story, expires=m["start"])
 
 
+def p_depart(st, S: Season, m: dict):
+    """Story « C'est parti ! » au depart : publiee sans validation (aucun chiffre, et un clic
+    tardif la rendrait inutile)."""
+    favs = []
+    if not m["relay"]:
+        season_rows = S.finished_races()
+        fallback = stats.standings(S.c, S.id, m["cat"])
+        if not fallback or fallback[0]["score"] == 0:
+            fallback = stats.standings(S.c, S.previous_id(), m["cat"])
+        start_list = None
+        if m["disc"] == "PU":
+            sprint = next(((sm, r) for sm, r in season_rows if sm["event_id"] == m["event_id"] and sm["disc"] == "SP" and sm["cat"] == m["cat"]), None)
+            start_list = [r for r in sprint[1] if r["rank"]] if sprint else None
+        favs = stats.favorites(m, season_rows, fallback, start_list)
+    produce(st, f"go:{m['race_id']}", "depart", [], "", templates.story_depart(m, favs),
+            expires=m["start"] + dt.timedelta(minutes=30), auto=True)
+
+
 def fautes(n) -> str:
     n = n or 0
     return "sans faute" if n == 0 else f"{n} faute{'s' if n > 1 else ''}"
@@ -440,7 +458,8 @@ def p_post_race(st, S: Season, m: dict, payload: dict):
     alts = alts[: len(slides)]
     if len(slides) > len(alts):
         alts.append("Les autres Français : " + ", ".join(f"{r['name']} {o(r['rank'])}" for r in home[len(alts) - 3:]) + ".")
-    produce(st, f"post:{m['race_id']}", "apres_course", slides, cap["caption"], alts=alts)
+    story = templates.story_bleus(m, home) if home else None
+    produce(st, f"post:{m['race_id']}", "apres_course", slides, cap["caption"], story, alts=alts)
 
 
 def p_bilan(st, S: Season, ev):
@@ -546,6 +565,8 @@ def _run(st: dict, now: dt.datetime):
     for ev in filter(None, {id(x): x for x in (S.running(), up)}.values()):
         for m in S.comps(ev):
             delta = (m["start"] - now).total_seconds() / 60
+            if -15 <= delta <= 2 and now >= m["start"] - dt.timedelta(minutes=2):
+                todo.append((f"go:{m['race_id']}", lambda m=m: p_depart(st, S, m)))
             if not m["relay"] and 30 <= delta <= config.SCHEDULE["pre_race_minutes"]:
                 todo.append((f"pre:{m['race_id']}", lambda m=m, ev=ev: p_pre_race(st, S, m, ev)))
             if -12 * 60 <= delta < -20 and not finished(st, f"post:{m['race_id']}"):

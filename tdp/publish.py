@@ -122,11 +122,19 @@ def _tg(method: str, **payload) -> dict:
 
 
 def send_for_approval(key: str, urls: list[str], caption: str, story_url: str | None = None):
-    media = [{"type": "photo", "media": u} for u in (urls + ([story_url] if story_url else []))[:10]]
-    if len(media) == 1:
-        _tg("sendPhoto", chat_id=config.TELEGRAM_CHAT_ID, photo=media[0]["media"])
-    else:
-        _tg("sendMediaGroup", chat_id=config.TELEGRAM_CHAT_ID, media=media)
+    caption = caption or "(story seule)"
+    # Un album Telegram contient 10 images maximum : la story part a part si besoin.
+    groups = [urls[:10]] if urls else []
+    if story_url:
+        if groups and len(groups[0]) < 10:
+            groups[0] = groups[0] + [story_url]
+        else:
+            groups.append([story_url])
+    for g in groups:
+        if len(g) == 1:
+            _tg("sendPhoto", chat_id=config.TELEGRAM_CHAT_ID, photo=g[0])
+        else:
+            _tg("sendMediaGroup", chat_id=config.TELEGRAM_CHAT_ID, media=[{"type": "photo", "media": u} for u in g])
     _tg("sendMessage", chat_id=config.TELEGRAM_CHAT_ID, text=f"{key}\n\n{caption}"[:4000],
         reply_markup={"inline_keyboard": [[{"text": "✅ Publier", "callback_data": f"ok|{key}"},
                                            {"text": "❌ Annuler", "callback_data": f"no|{key}"}]]})

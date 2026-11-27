@@ -466,3 +466,76 @@ def bleus(cat: str, site: str, athletes: list[dict]) -> list[str]:
 <div style='display:flex;height:240px;gap:10px'>{form}</div></div>"""
         slides.append(page(body, "Les Bleus" if not fem else "Les Bleues", f"Après {apres_site(site)}", i + 2, total))
     return slides
+
+
+# ================================================================ STORIES (1080x1920)
+# Zone sure : Instagram couvre environ 250 px en haut et 320 px en bas.
+
+def story_depart(meta: dict, favs: list[dict]) -> str:
+    set_cat(meta.get("cat"))
+    hhmm = meta["start"].strftime("%H:%M") if meta["start"] else ""
+    fav = ""
+    if favs:
+        names = "".join(f"<div style='display:flex;align-items:center;gap:16px;font-size:38px;font-weight:800;margin-top:14px'>"
+                        f"{nat(r['nat'], 40)}<span class='{'fr' if r['nat'] == HOME else ''}'>{e(r['name'])}</span></div>" for r in favs[:3])
+        fav = (f"<div style='position:absolute;top:1080px;left:72px;right:72px;background:var(--row);border-radius:28px;padding:34px 40px'>"
+               f"<div style='font-size:28px;color:{O};font-weight:800;letter-spacing:.08em'>À SURVEILLER</div>{names}</div>")
+    body = f"""<div style='position:absolute;top:330px;left:72px;right:72px'>{kicker(f'{hhmm} · EN DIRECT')}
+<div style='font-size:150px;font-weight:900;line-height:.95;margin-top:26px;color:{O}'>C'est<br>parti !</div>
+<div style='font-size:62px;font-weight:900;line-height:1.05;margin-top:40px'>{e(meta['label'])}</div>
+<div style='font-size:40px;color:{GREY};font-weight:700;margin-top:16px'>{e(meta['site'])}</div></div>{fav}
+<div style='position:absolute;top:1480px;left:72px;right:72px;text-align:center;font-size:36px;font-weight:800;color:var(--soft)'>
+Résultats et stats juste après l'arrivée 🎯</div>"""
+    return page(body, meta["site"], "Départ", height=1920)
+
+
+def story_programme(site: str, days: list[tuple[str, list[tuple[str, str]]]]) -> str:
+    set_cat(None)
+    rows = ""
+    for day, races in days:
+        items = "".join(f"<div style='display:flex;gap:24px;font-size:34px;font-weight:600;padding:6px 0'>"
+                        f"<span class='num' style='width:110px;color:{O};font-weight:800'>{e(h)}</span><span>{e(r)}</span></div>" for h, r in races)
+        rows += (f"<div style='padding:18px 0;border-top:1px solid var(--line)'><div style='font-size:26px;color:{GREY};"
+                 f"font-weight:800;letter-spacing:.1em;margin-bottom:6px'>{e(day.upper())}</div>{items}</div>")
+    body = f"""<div style='position:absolute;top:290px;left:72px;right:72px'>{kicker('LE PROGRAMME')}
+<div class='h' style='font-size:84px'>Ce week-end<br>{a_site(site)}</div></div>
+<div style='position:absolute;top:640px;left:72px;right:72px'>{rows}
+<div style='font-size:26px;color:{MUTED};margin-top:16px'>Heures françaises</div></div>"""
+    return page(body, site, "Programme", height=1920)
+
+
+def story_bleus(meta: dict, home: list[dict]) -> str:
+    set_cat(meta.get("cat"))
+    fem = meta.get("cat") == "SW"
+    o = ordinal_f if fem else ordinal
+    b = home[0]
+    ski = b["ski"] or (None, None)
+    hits = b["shots"] - (b["misses_total"] or 0)
+    rank_txt = o(b["rank"])
+    num, suf = (rank_txt[:-2], rank_txt[-2:]) if rank_txt.endswith(("er", "re")) else (rank_txt[:-1], rank_txt[-1:])
+
+    def stat(k, v):
+        return (f"<div style='flex:1;background:var(--chip);border-radius:18px;padding:20px 22px'>"
+                f"<div style='font-size:22px;color:{GREY};font-weight:800;letter-spacing:.08em'>{k}</div>"
+                f"<div class='num' style='font-size:40px;font-weight:900;margin-top:6px'>{e(v)}</div></div>")
+    others = "".join(
+        f"<div style='display:flex;align-items:center;padding:16px 0;border-top:1px solid var(--line);font-size:32px'>"
+        f"<span style='width:100px;font-weight:900;color:{GREY}'>{o(r['rank'])}</span>"
+        f"<span class='fr' style='flex:1;font-weight:800'>{e(r['name'])}</span>"
+        f"<span style='margin-right:18px'>{shots(r['misses'], 15, 6)}</span>"
+        f"<span class='num' style='width:150px;text-align:right;font-size:28px;color:var(--soft)'>{e(fmt_gap(r['behind_s']))}</span></div>"
+        for r in home[1:8])
+    body = f"""<div style='position:absolute;top:270px;left:72px;right:72px'>{kicker('🇫🇷 LES BLEUES' if fem else '🇫🇷 LES BLEUS', 'var(--fr)')}
+<div style='font-size:40px;font-weight:800;margin-top:10px;color:var(--soft)'>{e(meta['label'])} · {e(meta['site'])}</div></div>
+<div style='position:absolute;top:420px;left:72px;right:72px;background:var(--fr-bg);border-radius:28px;padding:34px 38px'>
+<div style='display:flex;justify-content:space-between;align-items:flex-end'>
+<div><div style='font-size:26px;color:var(--fr);font-weight:800;letter-spacing:.08em'>{'MEILLEURE FRANÇAISE' if fem else 'MEILLEUR FRANÇAIS'}</div>
+<div style='font-size:34px;color:{GREY};font-weight:600;margin-top:12px'>{e(b['first'])}</div>
+<div style='font-size:{78 if len(b['last']) < 11 else 60}px;font-weight:900;line-height:1;text-transform:uppercase'>{e(b['last'])}</div></div>
+<div style='text-align:right'><div style='font-size:150px;font-weight:900;line-height:.85;color:{O}'>{num}<span style='font-size:70px'>{suf}</span></div>
+<div class='num' style='font-size:30px;font-weight:700;color:{GREY};margin-top:8px'>{e(fmt_gap(b['behind_s']) if b['rank'] > 1 else fmt_time(b['time_s']))}</div></div></div>
+<div style='display:flex;gap:14px;margin-top:28px'>{stat('SKI', (ordinal(ski[1]) + ' temps') if ski[1] else '-')}{stat('TIR', f'{hits}/{b["shots"]}')}</div>
+<div style='margin-top:22px'>{shots(b['misses'], 26, 10)}</div></div>
+<div style='position:absolute;top:1010px;left:72px;right:72px'>
+{"<div style='font-size:26px;color:" + GREY + ";font-weight:800;letter-spacing:.08em;margin-bottom:8px'>" + ('LES AUTRES BLEUES' if fem else 'LES AUTRES BLEUS') + "</div>" if len(home) > 1 else ""}{others}</div>"""
+    return page(body, meta["site"], "Les Bleues" if fem else "Les Bleus", height=1920)
