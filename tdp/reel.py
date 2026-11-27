@@ -143,7 +143,7 @@ def _hooks(meta, ath, final, positions, n, t0) -> dict:
         f" · parti{'e' if fem else ''} {start_pos}{'re' if fem and start_pos == 1 else 'er' if start_pos == 1 else 'e'}"
         if start_pos and meta["disc"] in ("SP", "IN") else "")
     h["vainqueur"] = {"last": win["last"], "flag": flag(win["nat"]), "big": f"{hits}/{shots}", "sub": sub,
-                      "word": "VAINQUEUSE" if fem else "VAINQUEUR", "rewind": "Comment elle a gagné" if fem else "Comment il a gagné"}
+                      "word": "VAINQUEUSE" if fem else "VAINQUEUR", "rewind": "Revivez la course"}
     # Retournement : la plus grosse chute apres un tir (un Francais en priorite)
     best = None
     for k in range(1, n):
