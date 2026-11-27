@@ -12,10 +12,32 @@ Ton : simple, punchy, chaleureux, pour des fans. Phrases courtes. Tutoiement col
 Règles strictes :
 - Utilise UNIQUEMENT les faits et chiffres fournis. N'invente aucun chiffre, aucun record, aucune citation, aucune info sur la vie des athlètes.
 - Ne modifie aucun nombre. N'ajoute pas de superlatif historique ("historique", "record") sauf s'il est dans les faits.
-- Pas de tiret cadratin.
-- Réponds uniquement avec un objet JSON valide, sans texte autour."""
+- Pas de tiret cadratin. Pas d'année ni de date (elles sont dans le visuel).
+- Réponds uniquement avec un objet JSON valide, sans texte autour.
 
-HASHTAGS = "#biathlon #biathlonfrance #coupedumondebiathlon #equipedefrance"
+Légende Instagram (champ "caption"), optimisée pour la découverte :
+- Ligne 1 = accroche de 90 caractères maximum, visible avant « plus » : le nom de l'athlète et le fait le plus fort. Un emoji au plus.
+- Puis 2 à 4 lignes courtes, avec en clair les mots que les fans recherchent : biathlon, Coupe du monde, le lieu, la discipline, les noms des Français.
+- Dernière ligne : une question simple qui appelle un commentaire. Pour un carrousel, invite aussi à faire défiler ou à enregistrer.
+- Aucun hashtag : ils sont ajoutés automatiquement."""
+
+HASHTAGS = "#biathlon #biathlonfrance #coupedumondebiathlon #equipedefrance"  # secours
+
+
+def _tag(text: str) -> str:
+    import unicodedata
+    t = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
+    return "#" + re.sub(r"[^A-Za-z0-9]", "", t).lower()
+
+
+def hashtags(extra: list[str] | None = None) -> str:
+    """5 hashtags maximum (limite Instagram depuis decembre 2025) : #biathlon + les plus precis."""
+    tags = ["#biathlon"]
+    for x in (extra or []) + ["biathlonfrance", "coupedumondebiathlon"]:
+        t = _tag(x)
+        if len(t) > 3 and t not in tags:
+            tags.append(t)
+    return " ".join(tags[:5])
 
 
 def _ask(prompt: str) -> dict | None:
@@ -43,7 +65,8 @@ def _safe(text: str, facts: str, limit: int) -> bool:
     return bool(text) and len(text) <= limit and _numbers(text) <= _numbers(facts)
 
 
-def post_race(meta: dict, facts: str, candidates: list[dict], fallback_headline: str) -> dict:
+def post_race(meta: dict, facts: str, candidates: list[dict], fallback_headline: str,
+              fallback_caption: str | None = None, tags: list[str] | None = None) -> dict:
     cand_txt = "\n".join(f"{i}. {c['fact']}" for i, c in enumerate(candidates[:6]))
     prompt = f"""Course : {meta['label']} à {meta['site']}.
 Faits calculés :
@@ -56,12 +79,12 @@ Rends ce JSON :
 "stat_index": numéro de la stat candidate la plus partageable (priorité aux Français si elle est forte),
 "stat_headline": "phrase choc de 60 caractères max reprenant cette stat",
 "stat_detail": "phrase d'explication de 140 caractères max",
-"caption": "légende Instagram de 3 à 5 lignes : résultat, meilleur Français, une question pour faire réagir. Emojis sobres."}}"""
+"caption": "légende Instagram selon les consignes : accroche, 2 à 4 lignes avec les mots-clés, question finale"}}"""
     out = _ask(prompt) or {}
     all_facts = facts + "\n" + cand_txt
     res = {
         "headline": out.get("headline") if _safe(out.get("headline"), all_facts, 60) else fallback_headline,
-        "caption": out.get("caption") if _safe(out.get("caption"), all_facts, 1500) else facts,
+        "caption": out.get("caption") if _safe(out.get("caption"), all_facts, 1500) else (fallback_caption or facts),
     }
     idx = out.get("stat_index", 0) if isinstance(out.get("stat_index"), int) else 0
     if candidates:
@@ -71,18 +94,18 @@ Rends ce JSON :
             "headline": out.get("stat_headline") if _safe(out.get("stat_headline"), c["fact"], 80) else c.get("short", c["fact"]),
             "detail": out.get("stat_detail") if _safe(out.get("stat_detail"), c["fact"], 170) else c["fact"],
         }
-    res["caption"] = res["caption"].strip() + "\n\n" + HASHTAGS
+    res["caption"] = res["caption"].strip() + "\n\n" + hashtags(tags)
     return res
 
 
-def generic(kind: str, facts: str, fallback_headline: str, fallback_caption: str) -> dict:
+def generic(kind: str, facts: str, fallback_headline: str, fallback_caption: str, tags: list[str] | None = None) -> dict:
     prompt = f"""Type de post : {kind}.
 Faits calculés :
 {facts}
 
 Rends ce JSON :
-{{"headline": "titre de 45 caractères max", "caption": "légende Instagram de 3 à 5 lignes, avec une question pour faire réagir"}}"""
+{{"headline": "titre de 45 caractères max", "caption": "légende Instagram selon les consignes : accroche, 2 à 4 lignes avec les mots-clés, question finale"}}"""
     out = _ask(prompt) or {}
     head = out.get("headline") if _safe(out.get("headline"), facts, 60) else fallback_headline
     cap = out.get("caption") if _safe(out.get("caption"), facts, 1500) else fallback_caption
-    return {"headline": head, "caption": cap.strip() + "\n\n" + HASHTAGS}
+    return {"headline": head, "caption": cap.strip() + "\n\n" + hashtags(tags)}

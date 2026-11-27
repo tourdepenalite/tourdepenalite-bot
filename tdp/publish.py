@@ -60,19 +60,26 @@ def _wait(container_id: str):
     raise RuntimeError(f"container {container_id}: delai depasse")
 
 
-def _container(**params) -> str:
-    if config.IG_MARK_AI:
+def _container(top: bool = True, **params) -> str:
+    # Etiquette IA : uniquement sur le conteneur publie (le carrousel), jamais sur ses images.
+    if config.IG_MARK_AI and top:
         params["is_ai_generated"] = "true"
     return _ig("POST", f"{config.IG_USER_ID}/media", **params)["id"]
 
 
-def publish_feed(urls: list[str], caption: str) -> str:
+def publish_feed(urls: list[str], caption: str, alts: list[str] | None = None) -> str:
+    """alt_text : texte alternatif par image (images du fil uniquement, pas les stories)."""
     if config.DRY_RUN:
         return "dry-run"
+    alts = (alts or []) + [""] * len(urls)
+
+    def alt(i):
+        return {"alt_text": alts[i][:1000]} if alts[i] else {}
     if len(urls) == 1:
-        cid = _container(image_url=urls[0], caption=caption)
+        cid = _container(image_url=urls[0], caption=caption, **alt(0))
     else:
-        children = [_container(image_url=u, is_carousel_item="true") for u in urls[: config.MAX_CAROUSEL]]
+        children = [_container(top=False, image_url=u, is_carousel_item="true", **alt(i))
+                    for i, u in enumerate(urls[: config.MAX_CAROUSEL])]
         cid = _container(media_type="CAROUSEL", children=",".join(children), caption=caption)
     _wait(cid)
     return _ig("POST", f"{config.IG_USER_ID}/media_publish", creation_id=cid)["id"]

@@ -114,13 +114,16 @@ class Season:
 # ================================================================ production d'un post
 
 def produce(st: dict, key: str, kind: str, slides: list[str], caption: str, story: str | None = None,
-            expires: dt.datetime | None = None):
+            expires: dt.datetime | None = None, alts: list[str] | None = None):
     folder = OUT / key.replace(":", "_")
     paths = render(slides + ([story] if story else []), folder, "s")
     stamp = dt.datetime.now().strftime("%Y%m%d%H%M%S")
     urls = [publish.upload(p, f"{key.replace(':', '/')}/{stamp}_{p.name}") for p in paths]
     story_url = urls.pop() if story else None
-    post = {"kind": kind, "status": "pending", "urls": urls, "story_url": story_url, "caption": caption,
+    if not alts:
+        first = caption.strip().splitlines()[0] if caption.strip() else kind
+        alts = [f"Tour de pénalité, statistiques de biathlon : {first} (visuel {i + 1}/{len(urls)})" for i in range(len(urls))]
+    post = {"kind": kind, "status": "pending", "urls": urls, "story_url": story_url, "caption": caption, "alts": alts,
             "created": NOW.isoformat(),
             "expires": (expires or NOW + dt.timedelta(hours=20)).isoformat(),
             "files": [str(p) for p in paths]}
@@ -136,7 +139,7 @@ def do_publish(st: dict, key: str):
     p = st["posts"][key]
     try:
         if p["urls"]:
-            p["ig_id"] = publish.publish_feed(p["urls"], p["caption"])
+            p["ig_id"] = publish.publish_feed(p["urls"], p["caption"], p.get("alts"))
         if p.get("story_url"):
             p["ig_story_id"] = publish.publish_story(p["story_url"])
         p["status"] = "published"
@@ -210,7 +213,10 @@ def p_programme(st, S: Season, ev):
             if home:
                 facts.append(f"Meilleur(e) Français(e) {config.CATEGORIES[cat]} : {home['name']}, {home['rank']}e.")
     slides = templates.programme(site, day_list, len(metas), len(days), enjeux[:3])
-    cap = captions.generic("programme du week-end", "\n".join(facts), "", "\n".join(facts))
+    fb = [f"📅 Le programme de la Coupe du monde de biathlon {templates.a_site_txt(site)}",
+          f"{len(metas)} courses en {len(days)} jours, heures françaises dans le carrousel 👉",
+          "Enregistrez le post pour ne rien manquer. Quelle course attendez-vous le plus ?"]
+    cap = captions.generic("programme du week-end", "\n".join(facts), "", "\n".join(fb), [site, "programme"])
     produce(st, f"prog:{ev['EventId']}", "programme", slides, cap["caption"])
 
 
@@ -245,7 +251,8 @@ def p_classement(st, S: Season, ev):
     total = len(slides_data)
     slides = [templates.standings_slide(k, r, h, f"Avant {templates.apres_site(site)}", i + 1, total, n, y, c)
               for i, (k, r, h, n, y, c) in enumerate(slides_data)]
-    cap = captions.generic("classements généraux avant l'étape", "\n".join(facts), "", "\n".join(facts))
+    fb = [f"📊 Le classement général de la Coupe du monde de biathlon avant {templates.apres_site(site)}"] + facts + ["Qui finira en jaune cette saison ?"]
+    cap = captions.generic("classements généraux avant l'étape", "\n".join(facts), "", "\n".join(fb), [site, "classementgeneral"])
     produce(st, f"gen:{ev['EventId']}", "classement", slides, cap["caption"])
 
 
@@ -282,8 +289,16 @@ def p_pre_race(st, S: Season, m: dict, ev):
     favs = stats.favorites(m, season_rows, fallback, start_list)
     feed, story = templates.pre_race(m, m["label"], lines, favs, KEY_POINT.get(m["disc"], ""))
     facts = [f"{m['label']} à {m['site']}, départ {m['start'].strftime('%H:%M')}."] + [f"Favori : {f['name']} ({f['nat']}), {f['why']}." for f in favs]
-    cap = captions.generic("avant la course", "\n".join(facts), m["label"], "\n".join(facts))
+    fb = [f"⏱️ {m['label']} {templates.a_site_txt(m['site'])}, départ à {m['start'].strftime('%H:%M')}",
+          "Nos favoris : " + ", ".join(f["name"] for f in favs) + ".",
+          "Votre pronostic pour la victoire ? 👇"]
+    cap = captions.generic("avant la course", "\n".join(facts), m["label"], "\n".join(fb), [m["site"]] + [f["name"] for f in favs[:1]])
     produce(st, f"pre:{m['race_id']}", "avant_course", [feed], cap["caption"], story, expires=m["start"])
+
+
+def fautes(n) -> str:
+    n = n or 0
+    return "sans faute" if n == 0 else f"{n} faute{'s' if n > 1 else ''}"
 
 
 def p_post_race(st, S: Season, m: dict, payload: dict):
@@ -296,7 +311,9 @@ def p_post_race(st, S: Season, m: dict, payload: dict):
         head = (f"La France gagne le relais" if teams[0]["nat"] == config.HOME_NAT else
                 f"{win_fr} gagne" + (f", la France {stats.ordinal_f(home['rank'])}" if home else ""))
         facts = [f"Vainqueur : {win_fr}."] + ([f"France : {home['rank']}e, {home['penalties']} tour(s) de pénalité."] if home else [])
-        cap = captions.generic("résultat de relais", "\n".join(facts), head, "\n".join(facts))
+        fb = [f"🏆 {head} {templates.a_site_txt(m['site'])}", f"Le classement du {m['label'].lower()} de Coupe du monde de biathlon.",
+              {"SW": "Votre relayeuse du jour ?", "SM": "Votre relayeur du jour ?"}.get(m["cat"], "Votre relayeur ou relayeuse du jour ?")]
+        cap = captions.generic("résultat de relais", "\n".join(facts), head, "\n".join(fb), [m["site"], "relais"])
         produce(st, f"post:{m['race_id']}", "relais", templates.relay_image(m, teams, cap["headline"] or head), cap["caption"])
         return
     rows = stats.individual_results(S.c, m["race_id"], payload)
@@ -315,9 +332,29 @@ def p_post_race(st, S: Season, m: dict, payload: dict):
              f"2. {fin[1]['name']} ({fin[1]['nat']}) {stats.fmt_gap(fin[1]['behind_s'])}.",
              f"3. {fin[2]['name']} ({fin[2]['nat']}) {stats.fmt_gap(fin[2]['behind_s'])}."]
     facts += [f"Français : {r['name']} {r['rank']}e ({r['misses_total']} faute(s))." for r in home[:6]]
-    cap = captions.post_race(m, "\n".join(facts), cands, f"{w['last']} s'impose {templates.a_site_txt(m['site'])}")
+    o = stats.ordinal_f if m["cat"] == "SW" else stats.ordinal
+    best = home[0] if home else None
+    fb = [f"🏆 {w['name']} remporte le {m['label'].lower()} {templates.a_site_txt(m['site'])}",
+          f"Coupe du monde de biathlon, le podium : {w['name']}, {fin[1]['name']} ({stats.fmt_gap(fin[1]['behind_s'])}), {fin[2]['name']} ({stats.fmt_gap(fin[2]['behind_s'])}).",
+          (f"🇫🇷 {'Meilleure Française' if m['cat'] == 'SW' else 'Meilleur Français'} : {best['name']}, {o(best['rank'])}." if best else ""),
+          f"Ski, tir et fiche de {'chaque Bleue' if m['cat'] == 'SW' else 'chaque Bleu'} dans le carrousel 👉",
+          "Qui vous a le plus impressionné aujourd'hui ?"]
+    tags = [m["site"], w["name"]] + ([best["name"]] if best else [])
+    cap = captions.post_race(m, "\n".join(facts), cands, f"{w['last']} s'impose {templates.a_site_txt(m['site'])}",
+                             "\n".join(x for x in fb if x), tags)
     slides = templates.results_carousel(m, rows, cap["headline"], cap.get("stat"))
-    produce(st, f"post:{m['race_id']}", "apres_course", slides, cap["caption"])
+    alts = [f"Podium du {m['label'].lower()} de Coupe du monde de biathlon {templates.a_site_txt(m['site'])} : "
+            f"1. {w['name']} ({w['nat']}), 2. {fin[1]['name']} ({fin[1]['nat']}), 3. {fin[2]['name']} ({fin[2]['nat']}).",
+            "Top 10 : " + ", ".join(f"{r['rank']}. {r['name']} ({r['nat']}, {fautes(r['misses_total'])})" for r in fin[:10]) + "."]
+    if cap.get("stat"):
+        alts.append(f"Stat du jour : {cap['stat']['headline']}. {cap['stat']['detail']}")
+    for r in home:
+        ski = f", {o(r['ski'][1])} temps de ski" if r["ski"] else ""
+        alts.append(f"Fiche de {r['name']} : {o(r['rank'])}{ski}, {r['shots'] - (r['misses_total'] or 0)}/{r['shots']} au tir.")
+    alts = alts[: len(slides)]
+    if len(slides) > len(alts):
+        alts.append("Les autres Français : " + ", ".join(f"{r['name']} {o(r['rank'])}" for r in home[len(alts) - 3:]) + ".")
+    produce(st, f"post:{m['race_id']}", "apres_course", slides, cap["caption"], alts=alts)
 
 
 def p_bilan(st, S: Season, ev):
@@ -348,7 +385,8 @@ def p_bilan(st, S: Season, ev):
         facts.append(f"Tir des Français : {round(100 * hits / shots)} %.")
     for lc in leader_change:
         facts.append(f"Nouveau leader : {lc['name']}.")
-    cap = captions.generic("bilan de l'étape", "\n".join(facts), head, "\n".join(facts))
+    fb = [f"🏁 {head}", f"Le bilan de l'étape de Coupe du monde de biathlon {templates.a_site_txt(site)}."] + facts[1:] + ["Votre moment fort du week-end ?"]
+    cap = captions.generic("bilan de l'étape", "\n".join(facts), head, "\n".join(fb), [site, "bilan"])
     produce(st, f"bilan:{ev['EventId']}", "bilan", templates.bilan(site, cap["headline"], figures, mv), cap["caption"])
 
 
@@ -374,7 +412,11 @@ def p_bleus(st, S: Season, ev, cat: str):
     athletes.sort(key=lambda a: a["gen_rank"] or 999)
     facts = [f"{a['name']} : meilleur résultat {a['week']['best']}e, tir {a['week']['tir']} %, {a['gen_rank']}e au général." for a in athletes]
     who = "Françaises" if cat == "SW" else "Français"
-    cap = captions.generic(f"bilan des {who}", "\n".join(facts), f"Le week-end des {who}", "\n".join(facts))
+    fb = [f"🇫🇷 Le week-end des {who} {templates.a_site_txt(site)}",
+          "Résultats, tir et forme de chaque athlète, week-end et saison, dans le carrousel 👉",
+          f"{'Quelle Française' if cat == 'SW' else 'Quel Français'} vous a le plus marqué ?"]
+    cap = captions.generic(f"bilan des {who}", "\n".join(facts), f"Le week-end des {who}", "\n".join(fb),
+                           ["equipedefrance"] + [a["name"] for a in athletes[:1]])
     produce(st, f"bleus:{ev['EventId']}:{cat}", "bleus", templates.bleus(cat, site, athletes), cap["caption"])
 
 
