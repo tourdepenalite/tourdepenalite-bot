@@ -24,7 +24,7 @@ from .stats import fmt_time, ordinal, ordinal_f, parse_time
 from .templates import HOME, flag, page, set_cat, a_site_txt, e
 
 FPS = 30
-INTRO, STAGE, FINISH, OUTRO = 2.4, 4.8, 4.4, 1.8
+HOOK, INTRO, STAGE, FINISH, OUTRO = 3.0, 2.4, 4.8, 4.4, 1.8
 MAX_FOCUS = 10
 
 
@@ -91,7 +91,7 @@ def build(meta: dict, rows: list[dict]) -> dict:
     focus += [a for a in final if a["nat"] == HOME and a not in focus][: MAX_FOCUS - len(focus)]
     focus += [a for a in final if a not in focus][: max(0, 10 - len(focus))]
     focus.sort(key=lambda a: a["rank"])
-    standings, prev = [], {}
+    standings, prev, positions = [], {}, []
     for k in range(n):
         order = sorted(ath, key=lambda a: a["cum"][k])
         lead = order[0]["cum"][k]
@@ -104,6 +104,7 @@ def build(meta: dict, rows: list[dict]) -> dict:
             top.append({"rank": fr[0], "last": fr[1]["last"], "nat": HOME, "gap": _gap(fr[1]["cum"][k] - lead),
                         "miss": sum(fr[1]["misses"][:k + 1]), "delta": (prev.get(fr[1]["ibu"], fr[0]) - fr[0]) if k else 0})
         standings.append(top)
+        positions.append(pos)
         prev = pos
     arr_rank = []
     for k in range(n):
@@ -114,7 +115,9 @@ def build(meta: dict, rows: list[dict]) -> dict:
                "time": str(a["total"]).replace(".", ",") if a["rank"] == 1 else _gap(parse_time(a["total"]) - parse_time(win["total"])),
                "shots": f"{5 * n - sum(a['misses'])}/{5 * n}"} for a in final[:3]]
     best_fr = next((a for a in final if a["nat"] == HOME), None)
+    hooks = _hooks(meta, ath, final, positions, n, t0)
     return {
+        "hooks": hooks, "hook": next(h for h in ("retournement", "vainqueur", "chiffre") if hooks.get(h)),
         "label": meta["label"], "site": meta["site"], "stages": [s.upper() for s in stages], "fem": fem,
         "focus": [{"last": a["last"], "nat": a["nat"], "flag": flag(a["nat"]), "fr": a["nat"] == HOME, "misses": a["misses"],
                    "arr": [arr_rank[k][a["ibu"]] for k in range(n)], "rank": o(a["rank"])} for a in focus],
@@ -122,12 +125,51 @@ def build(meta: dict, rows: list[dict]) -> dict:
         "podium": [{**p, "flag": flag(p["nat"]), "fr": p["nat"] == HOME} for p in podium],
         "best_fr": ({"name": f"{best_fr['first']} {best_fr['last']}", "rank": o(best_fr["rank"])}
                     if best_fr and best_fr["rank"] > 3 else None),
-        "timing": {"intro": INTRO, "stage": STAGE, "finish": FINISH, "outro": OUTRO},
+        "timing": {"hook": HOOK, "intro": INTRO, "stage": STAGE, "finish": FINISH, "outro": OUTRO},
     }
 
 
+def _hooks(meta, ath, final, positions, n, t0) -> dict:
+    """Trois accroches possibles pour les 3 premieres secondes, calculees sur la course."""
+    fem = meta.get("cat") == "SW"
+    win, second = final[0], final[1] if len(final) > 1 else None
+    shots = 5 * n
+    hits = shots - sum(win["misses"])
+    starts = sorted((a for a in ath if a.get("start")), key=lambda a: a["start"])
+    start_pos = next((i + 1 for i, a in enumerate(starts) if a["ibu"] == win["ibu"]), None)
+    h = {}
+    miss = shots - hits
+    sub = ("Aucune faute" if not miss else f"{miss} faute{'s' if miss > 1 else ''}") + (
+        f" · parti{'e' if fem else ''} {start_pos}{'re' if fem and start_pos == 1 else 'er' if start_pos == 1 else 'e'}"
+        if start_pos and meta["disc"] in ("SP", "IN") else "")
+    h["vainqueur"] = {"last": win["last"], "flag": flag(win["nat"]), "big": f"{hits}/{shots}", "sub": sub,
+                      "word": "VAINQUEUSE" if fem else "VAINQUEUR", "rewind": "Comment elle a gagné" if fem else "Comment il a gagné"}
+    # Retournement : la plus grosse chute apres un tir (un Francais en priorite)
+    best = None
+    for k in range(1, n):
+        for a in ath:
+            p0, p1 = positions[k - 1].get(a["ibu"]), positions[k].get(a["ibu"])
+            if not p0 or not p1 or p0 > 30 or not a["misses"][k]:
+                continue
+            drop = p1 - p0
+            score = drop + (100 if a["nat"] == HOME and drop >= 5 else 0)
+            if drop >= 5 and (not best or score > best[0]):
+                best = (score, a, k, p0, p1, drop)
+    if best:
+        _, a, k, p0, p1, drop = best
+        m = a["misses"][k]
+        h["retournement"] = {"last": a["last"], "flag": flag(a["nat"]), "fr": a["nat"] == HOME, "misses": m, "stage": k + 1,
+                             "line1": f"{m} balle{'s' if m > 1 else ''}.", "line2": f"{drop} places perdues.",
+                             "from": p0, "to": p1}
+    if second:
+        gap = parse_time(second["total"]) - parse_time(win["total"])
+        if gap >= 20:
+            h["chiffre"] = {"value": gap, "label": f"d'avance sur {'la' if fem else 'le'} 2e", "last": win["last"], "flag": flag(win["nat"])}
+    return h
+
+
 def duration(data: dict) -> float:
-    return INTRO + STAGE * len(data["stages"]) + FINISH + OUTRO
+    return HOOK + INTRO + STAGE * len(data["stages"]) + FINISH + OUTRO
 
 
 # ---------------------------------------------------------------- page animee
@@ -152,6 +194,8 @@ STYLE = """
 .sd{position:absolute;left:72px;right:150px;height:44px;display:flex;align-items:center;font-size:26px;font-weight:800;border-top:1px solid var(--line)}
 .sd .r{width:56px;color:var(--grey)} .sd .n{flex:1;margin-left:12px;text-transform:uppercase} .sd .g{width:150px;text-align:right}
 .sd .d{width:64px;text-align:right;font-size:20px}
+#hook{position:absolute;inset:0;z-index:20;background:var(--bg-grad, var(--bg));overflow:hidden}
+#hook .big{font-weight:900;line-height:.9;letter-spacing:-.02em}
 .pod{position:absolute;left:72px;right:150px;border-radius:26px;background:var(--row);display:flex;align-items:center;padding:0 30px}
 """
 
@@ -166,7 +210,7 @@ def html(data: dict) -> str:
 <div class='tl' id='tl'></div>
 <div id='rows'></div><div id='sds'></div>
 <div class='banner' id='banner'><span></span></div>
-<div id='fin'></div><div id='outro'></div>
+<div id='fin'></div><div id='outro'></div><div id='hook'></div>
 <script>
 const D = {json.dumps(data, ensure_ascii=False)};
 const T = D.timing, N = D.stages.length;
@@ -184,7 +228,49 @@ rows.innerHTML = D.focus.map((a, i) => `<div class='row' id='r${{i}}' style='top
   ${{[0,1,2,3,4].map(j => `<span class='tg' id='t${{i}}_${{j}}'></span>`).join('')}}<span class='cnt' id='c${{i}}'></span></div>`).join('');
 const SD_TOP = 600 + D.focus.length * 56 + 26;
 function stageStart(k) {{ return T.intro + k * T.stage; }}
-function draw(t) {{
+function drawHook(t) {{
+  const el = document.getElementById('hook'), H = D.hooks[D.hook];
+  if (t >= T.hook) {{ el.style.display = 'none'; return; }}
+  el.style.display = 'block';
+  const out = t > T.hook - 0.35 ? (T.hook - t) / 0.35 : 1;
+  el.style.opacity = out;
+  const a = x => ease(clamp(x));
+  const top = `<div style='position:absolute;top:300px;left:72px;font-size:28px;font-weight:800;letter-spacing:.12em;color:var(--grey)'>${{D.site.toUpperCase()}} · ${{D.label.toUpperCase()}}</div>`;
+  if (D.hook === 'vainqueur') {{
+    const rw = t >= 1.9;
+    const shake = rw ? Math.sin(t * 90) * 6 : 0;
+    el.innerHTML = top + `<div style='position:absolute;top:470px;left:72px;right:150px;transform:translateX(${{shake}}px);filter:${{rw ? 'blur(' + (t - 1.9) * 6 + 'px)' : 'none'}}'>
+      <div style='font-size:60px;opacity:${{a(t / 0.3)}}'>${{H.flag}}</div>
+      <div class='big' style='font-size:150px;margin-top:10px;transform:scale(${{0.8 + 0.2 * a(t / 0.35)}});transform-origin:left;opacity:${{a(t / 0.25)}}'>${{H.last}}</div>
+      <div class='big' style='font-size:230px;color:var(--flash);margin-top:30px;opacity:${{a((t - 0.45) / 0.3)}}'>${{H.big}}</div>
+      <div style='font-size:64px;font-weight:900;margin-top:30px;letter-spacing:.06em;opacity:${{a((t - 0.9) / 0.3)}}'>${{H.word}}</div>
+      <div style='font-size:34px;font-weight:700;color:var(--grey);margin-top:14px;opacity:${{a((t - 1.1) / 0.3)}}'>${{H.sub}}</div></div>` +
+      (rw ? `<div style='position:absolute;top:1300px;left:72px;right:150px;font-size:62px;font-weight:900;color:var(--flash);opacity:${{a((t - 1.9) / 0.2)}}'>⏪ ${{H.rewind}}</div>` : '');
+  }} else if (D.hook === 'retournement') {{
+    const shots = [0,1,2,3,4].map(j => {{
+      const on = t >= 0.25 + j * 0.16, miss = j >= 5 - H.misses;
+      const pop = miss && on ? 1 + 0.35 * (1 - a((t - 0.25 - j * 0.16) / 0.25)) : 1;
+      return `<span style='display:inline-block;width:96px;height:96px;border-radius:50%;margin-right:22px;border:8px solid ${{miss && on ? 'var(--flash)' : 'var(--ink)'}};background:${{on ? (miss ? 'var(--flash)' : 'var(--ink)') : 'transparent'}};transform:scale(${{pop}})'></span>`; }}).join('');
+    el.innerHTML = top + `<div style='position:absolute;top:430px;left:72px;right:150px'>
+      <div style='font-size:30px;font-weight:800;letter-spacing:.1em;color:var(--grey)'>TIR ${{H.stage}}</div>
+      <div style='margin-top:26px'>${{shots}}</div>
+      <div class='big' style='font-size:170px;margin-top:70px;opacity:${{a((t - 1.1) / 0.25)}}'>${{H.line1}}</div>
+      <div class='big' style='font-size:118px;color:var(--flash);margin-top:20px;opacity:${{a((t - 1.5) / 0.25)}};transform:translateY(${{(1 - a((t - 1.5) / 0.25)) * 30}}px)'>${{H.line2}}</div>
+      <div style='display:flex;align-items:center;gap:18px;font-size:52px;font-weight:900;margin-top:50px;opacity:${{a((t - 2.0) / 0.25)}}'>${{H.flag}}<span style='color:${{H.fr ? 'var(--fr)' : 'var(--ink)'}}'>${{H.last}}</span>
+      <span style='font-size:40px;color:var(--grey);font-weight:800'>${{H.from}}e → ${{H.to}}e</span></div></div>`;
+  }} else {{
+    const v = H.value * a((t - 0.2) / 1.4);
+    const m = Math.floor(v / 60), sec = (v - m * 60).toFixed(1).replace('.', ',');
+    const txt = m ? `${{m}}:${{sec.padStart(4, '0')}}` : sec;
+    el.innerHTML = top + `<div style='position:absolute;top:520px;left:72px;right:150px'>
+      <div class='big' style='font-size:260px;color:var(--flash)'>+${{txt}}</div>
+      <div style='font-size:60px;font-weight:900;margin-top:30px;opacity:${{a((t - 1.4) / 0.3)}}'>${{H.label}}</div>
+      <div style='display:flex;align-items:center;gap:18px;font-size:56px;font-weight:900;margin-top:60px;opacity:${{a((t - 1.8) / 0.3)}}'>${{H.flag}} ${{H.last}}</div></div>`;
+  }}
+}}
+function draw(t0) {{
+  drawHook(t0);
+  const t = t0 - T.hook;
   // frise
   let prog = 0;
   for (let k = 0; k < N; k++) if (t >= stageStart(k) + 0.4) prog = k + 1;
@@ -265,11 +351,11 @@ draw(0);
     return page(body, data["site"], "Revivre la course", height=1920)
 
 
-def record(data: dict, out: pathlib.Path, audio: str | None = None) -> pathlib.Path:
+def record(data: dict, out: pathlib.Path, audio: str | None = None, until: float | None = None) -> pathlib.Path:
     """Capture image par image puis encode en MP4 (H.264, 30 i/s)."""
     from playwright.sync_api import sync_playwright
     tmp = pathlib.Path(tempfile.mkdtemp(prefix="reel_"))
-    n = int(duration(data) * FPS)
+    n = int((until or duration(data)) * FPS)
     with sync_playwright() as p:
         exe = os.environ.get("TDP_CHROME")
         b = p.chromium.launch(executable_path=exe) if exe else p.chromium.launch()
