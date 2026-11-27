@@ -71,11 +71,17 @@ def _decor(height: int) -> str:
 
 def page(body: str, h1: str, h2: str, idx: int = 0, total: int = 0, height: int = 1350) -> str:
     count = f" · {idx}/{total}" if total else ""
+    story = height > 1350
+    top = f"<div class='top'><div class='brand'><span class='dot'></span>TOUR DE PÉNALITÉ</div><div class='hd'><b>{e(h1)}</b><br>{e(h2)}</div></div>"
+    # Stories : Instagram couvre le haut (nom du compte) et le bas (barre de reponse) :
+    # pas de bandeau en haut, source remontee au-dessus de la barre.
+    foot = (f"<div class='foot' style='bottom:{360 if story else 52}px'>"
+            f"<span>{'' if story else '@tourdepenalite'}</span><span>Données : IBU{count}</span></div>")
     mock = "<div class='mock'>MAQUETTE · DONNÉES FICTIVES</div>" if config.WATERMARK else ""
     return f"""<html><head><meta charset='utf-8'><style>{_theme_css()}{CSS}body{{height:{height}px}}</style></head><body>{_decor(height)}
-<div class='top'><div class='brand'><span class='dot'></span>TOUR DE PÉNALITÉ</div><div class='hd'><b>{e(h1)}</b><br>{e(h2)}</div></div>
+{"" if story else top}
 {body}{mock}
-<div class='foot'><span>@tourdepenalite</span><span>Données : IBU{count}</span></div></body></html>"""
+{foot}</body></html>"""
 
 
 def kicker(t, color=O):
