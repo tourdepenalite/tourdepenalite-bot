@@ -107,6 +107,19 @@
    "ig_id": "18499728859105793",
    "ig_story_id": "18151566919570571",
    "published": "2026-11-27T14:21:08.781177+01:00"
+  },
+  "grid:BT2627SWRLCP01SWIN": {
+   "kind": "grille",
+   "status": "pending",
+   "urls": [],
+   "story_url": "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/grid/BT2627SWRLCP01SWIN/20261127140604_s_01.jpg",
+   "caption": "",
+   "alts": [],
+   "created": "2026-11-27T15:05:59.780171+01:00",
+   "expires": "2026-11-27T16:15:00+01:00",
+   "files": [
+    "out/grid_BT2627SWRLCP01SWIN/s_01.jpg"
+   ]
   }
  },
  "tg_offset": 969544673,
