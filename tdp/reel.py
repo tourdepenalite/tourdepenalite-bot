@@ -54,6 +54,40 @@ def load_rows(client, race_id: str, nr_shootings: int) -> list[dict]:
     return rows
 
 
+def course_info(client, race_id: str) -> dict:
+    """Donnees officielles du parcours, lues dans le rapport IBU « Competition Data Summary » (PDF C82) :
+    « Course Information : 5 x 4.0km brown », longueur totale, denivele total. Vide si indisponible."""
+    import io
+    import re
+    import requests
+    from pypdf import PdfReader
+    rep = next((r for r in client.reports(race_id) if "Data Summary" in (r.get("Description") or "")), None)
+    if not rep or os.environ.get("TDP_IBU_FIXTURES"):
+        return {}
+    try:
+        pdf = requests.get(rep["URL"], timeout=60).content
+        text = "\n".join((p.extract_text() or "") for p in PdfReader(io.BytesIO(pdf)).pages)
+    except Exception as exc:  # noqa: BLE001
+        print("[reel] rapport C82 illisible :", exc)
+        return {}
+    info = {}
+    block = text.split("Course Information", 1)[-1][:200] if "Course Information" in text else ""
+    loops = []
+    for nb, km in re.findall(r"(\d+)\s*x\s*([\d.,]+)\s*km", block):
+        loops += [float(km.replace(",", "."))] * int(nb)
+    if loops:
+        info["loops"] = loops
+    if m := re.search(r"Total Climb\s*\n?\s*(\d+)\s*m", text):
+        info["climb"] = int(m.group(1))
+    if m := re.search(r"Total Course Length\s*\n?\s*(\d+)\s*m", text):
+        info["length_m"] = int(m.group(1))
+    return info
+
+
+def _fmt_km(km: float) -> str:
+    return f"{km:.1f}".rstrip("0").rstrip(".").replace(".", ",") + " km"
+
+
 def _loop_km(meta: dict, n: int) -> str:
     """Distance d'un tour (les tours sont de longueur egale : distance totale / (tirs + 1))."""
     try:
@@ -146,7 +180,9 @@ def build(meta: dict, rows: list[dict]) -> dict:
     return {
         "hooks": hooks, "hook": "vainqueur",  # choix de Quentin (27/11) ; les deux autres restent disponibles
         "label": meta["label"], "site": meta["site"], "stages": [s.upper() for s in stages], "fem": fem,
-        "loop_km": _loop_km(meta, n),
+        "loops": ([_fmt_km(x) for x in meta["course"]["loops"]] if len((meta.get("course") or {}).get("loops") or []) == n + 1
+                  else [_loop_km(meta, n)] * (n + 1) if _loop_km(meta, n) else []),
+        "climb": (meta.get("course") or {}).get("climb"),
         "focus": [{"last": a["show"], "nat": a["nat"], "flag": flag(a["nat"]), "fr": a["nat"] == HOME, "misses": a["misses"],
                    "arr": [arr_rank[k].get(a["ibu"]) for k in range(n)], "nvis": [len(v) for v in vis],
                    "pos": [at_pos[k][a["ibu"]] for k in range(n)], "slot": [slots[k].get(a["ibu"]) for k in range(n)]} for a in focus],
@@ -237,7 +273,7 @@ def html(data: dict) -> str:
 <div id='head' style='position:absolute;top:270px;left:72px;right:150px'>
 <div class='k2'>REVIVRE LA COURSE</div>
 <div style='font-size:66px;font-weight:900;line-height:1.02;margin-top:10px'>{e(data['label'])}</div>
-<div style='font-size:36px;color:var(--grey);font-weight:700;margin-top:10px'>{e(data['site'])} <span style='font-size:22px;color:var(--muted)'>· temps officiels IBU</span></div></div>
+<div style='font-size:36px;color:var(--grey);font-weight:700;margin-top:10px'>{e(data['site'])}{(' <span style="font-size:26px;color:var(--grey)">· ' + str(data['climb']) + ' m de dénivelé positif</span>') if data.get('climb') else ''}</div></div>
 <div class='tl' id='tl'></div>
 <div id='rows'></div><div id='sds'></div>
 <div class='banner' id='banner'><span></span></div>
@@ -252,7 +288,7 @@ const tl = document.getElementById('tl');
 const W = 1080 - 72 - 150 - 24;
 tl.innerHTML = "<div class='bar'></div><div class='fill' id='fill'></div>" + labels.map((l, i) => {{
   const x = 12 + W * i / (labels.length - 1);
-  const km = (D.loop_km && i < labels.length - 1) ? `<div class='km' style='left:${{x + W / (labels.length - 1) / 2}}px'>${{D.loop_km}}</div>` : '';
+  const km = (D.loops[i] && i < labels.length - 1) ? `<div class='km' style='left:${{x + W / (labels.length - 1) / 2}}px'>${{D.loops[i]}}</div>` : '';
   return `<div class='st' style='left:${{x}}px'>${{l}}</div><div class='pt' id='pt${{i}}' style='left:${{x}}px'></div>${{km}}`; }}).join('');
 const rows = document.getElementById('rows');
 rows.innerHTML = D.focus.map((a, i) => `<div class='row' id='r${{i}}' style='top:600px;opacity:0'>
