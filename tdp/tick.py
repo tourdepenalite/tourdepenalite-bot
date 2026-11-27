@@ -137,13 +137,16 @@ class Season:
 
 # ================================================================ production d'un post
 
-def produce(st: dict, key: str, kind: str, slides: list[str], caption: str, story: str | None = None,
+def produce(st: dict, key: str, kind: str, slides: list[str], caption: str, story: str | list[str] | None = None,
             expires: dt.datetime | None = None, alts: list[str] | None = None, auto: bool = False):
+    """story : une story ou une liste de stories, publiees apres le post du fil."""
+    stories = [x for x in (story if isinstance(story, list) else [story]) if x]
     folder = OUT / key.replace(":", "_")
-    paths = render(slides + ([story] if story else []), folder, "s")
+    paths = render(slides + stories, folder, "s")
     stamp = dt.datetime.now().strftime("%Y%m%d%H%M%S")
     urls = [publish.upload(p, f"{key.replace(':', '/')}/{stamp}_{p.name}") for p in paths]
-    story_url = urls.pop() if story else None
+    story_urls = urls[len(slides):]
+    urls = urls[:len(slides)]
     real_now = dt.datetime.now(config.TZ)
     if NOW < real_now - dt.timedelta(minutes=30):
         # Rattrapage (--now dans le passe) : laisser 20 h pour valider, quelle que soit l'heure de la course.
@@ -151,13 +154,13 @@ def produce(st: dict, key: str, kind: str, slides: list[str], caption: str, stor
     if not alts:
         first = caption.strip().splitlines()[0] if caption.strip() else kind
         alts = [f"Tour de pénalité, statistiques de biathlon : {first} (visuel {i + 1}/{len(urls)})" for i in range(len(urls))]
-    post = {"kind": kind, "status": "pending", "urls": urls, "story_url": story_url, "caption": caption, "alts": alts,
+    post = {"kind": kind, "status": "pending", "urls": urls, "story_urls": story_urls, "caption": caption, "alts": alts,
             "created": NOW.isoformat(),
             "expires": (expires or NOW + dt.timedelta(hours=20)).isoformat(),
             "files": [str(p) for p in paths]}
     st["posts"][key] = post
     if config.REQUIRE_APPROVAL and not auto:
-        publish.send_for_approval(key, urls, caption, story_url)
+        publish.send_for_approval(key, urls, caption, story_urls)
     else:
         do_publish(st, key)
     print(f"[produit] {key} ({len(paths)} visuel(s))")
@@ -168,8 +171,8 @@ def do_publish(st: dict, key: str):
     try:
         if p["urls"]:
             p["ig_id"] = publish.publish_feed(p["urls"], p["caption"], p.get("alts"))
-        if p.get("story_url"):
-            p["ig_story_id"] = publish.publish_story(p["story_url"])
+        stories = p.get("story_urls") or ([p["story_url"]] if p.get("story_url") else [])
+        p["ig_story_ids"] = [publish.publish_story(u) for u in stories]
         p["status"] = "published"
         p["published"] = (NOW or dt.datetime.now(config.TZ)).isoformat()
     except Exception as exc:
@@ -505,8 +508,10 @@ def p_post_race(st, S: Season, m: dict, payload: dict):
     alts = alts[: len(slides)]
     if len(slides) > len(alts):
         alts.append("Les autres Français : " + ", ".join(f"{r['name']} {o(r['rank'])}" for r in home[len(alts) - 3:]) + ".")
-    story = templates.story_bleus(m, home) if home else None
-    produce(st, f"post:{m['race_id']}", "apres_course", slides, cap["caption"], story, alts=alts)
+    clean = stats.clean_sheets(rows)
+    best_shooters = sorted([r for r in fin if r["shots"]], key=lambda r: (r["misses_total"] or 0, r["rank"]))[:5]
+    stories = ([templates.story_bleus(m, home)] if home else []) + [templates.story_sans_faute(m, clean, best_shooters)]
+    produce(st, f"post:{m['race_id']}", "apres_course", slides, cap["caption"], stories, alts=alts)
 
 
 def p_bilan(st, S: Season, ev):

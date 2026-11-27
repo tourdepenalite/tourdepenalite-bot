@@ -600,3 +600,35 @@ def story_relais(meta: dict, teams: list[dict]) -> str:
 <div style='font-size:36px;color:{GREY};font-weight:700;margin-top:12px'>{hhmm} · {e(meta['site'])}</div></div>
 <div style='position:absolute;top:540px;left:72px;right:72px'>{blocks}</div>"""
     return page(body, meta["site"], "Composition des relais", height=1920)
+
+
+def story_sans_faute(meta: dict, clean: list[dict], best_shooters: list[dict]) -> str:
+    """Le club des sans-faute : tous les athletes a 0 faute (12 affiches au plus)."""
+    set_cat(meta.get("cat"))
+    fem = meta.get("cat") == "SW"
+    o = ordinal_f if fem else ordinal
+    n = len(clean)
+    show = clean[:11]
+    rows = "".join(
+        f"<div style='display:flex;align-items:center;padding:14px 18px;border-radius:14px;margin-bottom:8px;"
+        f"background:{FR_BG if r['nat'] == HOME else ROW}'>{nat(r['nat'], 34)}"
+        f"<span class='{'fr' if r['nat'] == HOME else ''}' style='flex:1;margin-left:16px;font-size:32px;font-weight:800'>{e(r['name'])}</span>"
+        f"<span class='num' style='font-size:30px;font-weight:800;color:var(--soft)'>{o(r['rank'])}</span></div>" for r in show)
+    more = (f"<div style='font-size:28px;color:{GREY};margin-top:10px;font-weight:700'>et {n - 11} autre{'s' if n - 11 > 1 else ''}</div>"
+            if n > 11 else "")
+    if n:
+        big, title_txt = str(n), "sans-faute"
+        sub = f"{show[0]['shots']}/{show[0]['shots']} au tir"
+    else:
+        big, title_txt, sub = "0", "sans-faute aujourd'hui", "Les meilleurs tireurs du jour"
+        rows = "".join(
+            f"<div style='display:flex;align-items:center;padding:14px 18px;border-radius:14px;margin-bottom:8px;background:{ROW}'>"
+            f"{nat(r['nat'], 34)}<span style='flex:1;margin-left:16px;font-size:32px;font-weight:800'>{e(r['name'])}</span>"
+            f"<span class='num' style='font-size:30px;font-weight:800'>{r['shots'] - (r['misses_total'] or 0)}/{r['shots']}</span></div>"
+            for r in best_shooters[:5])
+    body = f"""<div style='position:absolute;top:250px;left:72px;right:72px'>{kicker('LE CLUB DES SANS-FAUTE')}
+<div style='display:flex;align-items:baseline;gap:22px;margin-top:10px'><span style='font-size:190px;font-weight:900;line-height:.9;color:{O}'>{big}</span>
+<span style='font-size:58px;font-weight:900;line-height:1'>{e(title_txt)}</span></div>
+<div style='font-size:34px;color:{GREY};font-weight:700;margin-top:14px'>{e(meta['label'])} · {e(sub)}</div></div>
+<div style='position:absolute;top:640px;left:72px;right:72px'>{rows}{more}</div>"""
+    return page(body, meta["site"], "Sans-faute", height=1920)

@@ -121,20 +121,19 @@ def _tg(method: str, **payload) -> dict:
     return r.json()
 
 
-def send_for_approval(key: str, urls: list[str], caption: str, story_url: str | None = None):
+def send_for_approval(key: str, urls: list[str], caption: str, stories: list[str] | str | None = None):
     caption = caption or "(story seule)"
-    # Un album Telegram contient 10 images maximum : la story part a part si besoin.
-    groups = [urls[:10]] if urls else []
-    if story_url:
-        if groups and len(groups[0]) < 10:
-            groups[0] = groups[0] + [story_url]
-        else:
-            groups.append([story_url])
-    for g in groups:
+    stories = [stories] if isinstance(stories, str) else (stories or [])
+    imgs = list(urls) + list(stories)
+    # Albums Telegram : 10 images maximum chacun.
+    for i in range(0, len(imgs), 10):
+        g = imgs[i:i + 10]
         if len(g) == 1:
             _tg("sendPhoto", chat_id=config.TELEGRAM_CHAT_ID, photo=g[0])
         else:
             _tg("sendMediaGroup", chat_id=config.TELEGRAM_CHAT_ID, media=[{"type": "photo", "media": u} for u in g])
+    if stories:
+        caption = f"{caption}\n\n({len(urls)} visuel(s) dans le fil, {len(stories)} story(s))"
     _tg("sendMessage", chat_id=config.TELEGRAM_CHAT_ID, text=f"{key}\n\n{caption}"[:4000],
         reply_markup={"inline_keyboard": [[{"text": "✅ Publier", "callback_data": f"ok|{key}"},
                                            {"text": "❌ Annuler", "callback_data": f"no|{key}"}]]})

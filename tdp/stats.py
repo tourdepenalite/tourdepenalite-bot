@@ -332,6 +332,11 @@ def u23_standings(client: Client, rows: list[dict], first_race: dt.date, limit: 
     return out
 
 
+def clean_sheets(rows: list[dict]) -> list[dict]:
+    """Athletes classes sans aucune faute au tir."""
+    return [r for r in rows if r["rank"] and r["shots"] and r["misses_total"] == 0]
+
+
 WC_POINTS = [90, 75, 60, 50, 45, 40, 36, 34, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21,
              20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
 
