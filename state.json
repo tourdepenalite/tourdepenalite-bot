@@ -2,7 +2,7 @@
  "posts": {
   "prog:BT2627SWRLCP02": {
    "kind": "programme",
-   "status": "pending",
+   "status": "cancelled",
    "urls": [
     "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/prog/BT2627SWRLCP02/20261127122229_s_01.jpg",
     "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/prog/BT2627SWRLCP02/20261127122229_s_02.jpg"
@@ -21,7 +21,7 @@
    ]
   }
  },
- "tg_offset": 0,
+ "tg_offset": 969544666,
  "snapshots": {},
  "watch": {}
 }
