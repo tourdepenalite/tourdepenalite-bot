@@ -126,20 +126,29 @@ def race_meta(comp: dict, event: dict | None = None) -> dict:
     }
 
 
+def status_text(payload: dict, comp: dict | None = None) -> str:
+    return " | ".join(t for t in (str((payload.get("Competition") or {}).get("StatusText") or ""),
+                                  str((comp or {}).get("StatusText") or "")) if t)
+
+
+def has_results(payload: dict, n: int = 3) -> bool:
+    ranked = [r for r in payload.get("Results", []) or [] if str(r.get("Rank") or "").strip().isdigit()]
+    return len(ranked) >= n
+
+
 def is_official(payload: dict, comp: dict | None = None) -> bool:
-    """Le resultat est-il definitif ? Le libelle exact du statut n'est pas documente :
-    on accepte 'Final'/'Official' et on refuse 'Unofficial'/'Provisional'. En cas de doute
-    l'orchestrateur attend en plus que le classement soit stable sur deux passages."""
-    texts = [str((payload.get("Competition") or {}).get("StatusText") or ""), str((comp or {}).get("StatusText") or "")]
+    """Resultat definitif ? Le libelle exact du statut n'est pas documente. Une course a
+    aussi une "liste de depart officielle" : on exige donc des resultats classes ET un
+    statut qui parle de resultat officiel/final. Sinon l'orchestrateur attend que le
+    classement soit stable sur deux passages, au moins 60 min apres le depart."""
+    if not has_results(payload):
+        return False
     if payload.get("IsFinal") is True:
         return True
-    for t in texts:
-        tl = t.lower()
-        if "unofficial" in tl or "provisional" in tl or "live" in tl:
-            return False
-        if "official" in tl or "final" in tl:
-            return True
-    return False
+    tl = status_text(payload, comp).lower()
+    if any(w in tl for w in ("unofficial", "provisional", "live", "start", "progress", "running")):
+        return False
+    return ("official" in tl and "result" in tl) or "final" in tl
 
 
 def _rank_map(client: Client, race_id: str, type_id: str) -> dict[str, tuple[float, int]]:
@@ -351,7 +360,8 @@ def favorites(meta: dict, season_rows: list[tuple[dict, list[dict]]], fallback_s
         return out
     races = [(m, rows) for m, rows in season_rows if m["cat"] == meta["cat"] and not m["relay"]][-config.FAVORITES_FORM_RACES:]
     if len(races) < 2:
-        return [{**r, "why": f"{ordinal(r['rank'])} du général"} for r in fallback_standings[:n]]
+        return [{**r, "why": f"{ordinal(r['rank'])} du général" + (f" ({r['why_prefix']})" if r.get("why_prefix") else "")}
+                for r in fallback_standings[:n]]
     score, info = {}, {}
     for _, rows in races:
         for r in rows:

@@ -27,6 +27,10 @@ NOW: dt.datetime | None = None  # heure courante (simulable avec --now)
 JOURS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
 
 
+class NotReady(Exception):
+    """Donnees pas encore disponibles : on reessaiera au prochain passage, sans compter d'echec."""
+
+
 # ================================================================ etat
 
 def load_state() -> dict:
@@ -47,6 +51,10 @@ class Season:
         self.id = client.current_season()
         self.events = sorted(client.events(self.id, config.WC_LEVEL), key=lambda e: e.get("StartDate") or "")
         self._races = None
+
+    def previous_id(self) -> str:
+        a, b = int(self.id[:2]), int(self.id[2:])
+        return f"{a - 1:02d}{b - 1:02d}"
 
     def ev_dates(self, ev):
         s, e = stats.parse_dt(ev.get("StartDate")), stats.parse_dt(ev.get("EndDate"))
@@ -263,7 +271,11 @@ def p_pre_race(st, S: Season, m: dict, ev):
     if m["disc"] == "PU":
         sprint = next(((sm, r) for sm, r in season_rows if sm["event_id"] == m["event_id"] and sm["disc"] == "SP" and sm["cat"] == m["cat"]), None)
         start_list = [r for r in sprint[1] if r["rank"]] if sprint else None
-    favs = stats.favorites(m, season_rows, stats.standings(S.c, S.id, m["cat"]), start_list)
+    fallback = stats.standings(S.c, S.id, m["cat"])
+    if not fallback or fallback[0]["score"] == 0:
+        prev = S.previous_id()
+        fallback = [{**r, "why_prefix": f"saison {prev[:2]}-{prev[2:]}"} for r in stats.standings(S.c, prev, m["cat"])]
+    favs = stats.favorites(m, season_rows, fallback, start_list)
     feed, story = templates.pre_race(m, m["label"], lines, favs, KEY_POINT.get(m["disc"], ""))
     facts = [f"{m['label']} à {m['site']}, départ {m['start'].strftime('%H:%M')}."] + [f"Favori : {f['name']} ({f['nat']}), {f['why']}." for f in favs]
     cap = captions.generic("avant la course", "\n".join(facts), m["label"], "\n".join(facts))
@@ -274,7 +286,7 @@ def p_post_race(st, S: Season, m: dict, payload: dict):
     if m["relay"]:
         teams = stats.relay_results(payload)
         if not teams or not teams[0]["rank"]:
-            return
+            raise NotReady("relais sans classement")
         home = next((t for t in teams if t["nat"] == config.HOME_NAT), None)
         win_fr = templates.NAT_FR.get(teams[0]["nat"], teams[0]["nat"])
         head = (f"La France gagne le relais" if teams[0]["nat"] == config.HOME_NAT else
@@ -286,7 +298,7 @@ def p_post_race(st, S: Season, m: dict, payload: dict):
     rows = stats.individual_results(S.c, m["race_id"], payload)
     fin = [r for r in rows if r["rank"]]
     if len(fin) < 3:
-        return
+        raise NotReady("moins de 3 classes")
     start_ranks = None
     if m["disc"] == "PU":
         sprint = next((r for sm, r in S.finished_races() if sm["event_id"] == m["event_id"] and sm["disc"] == "SP" and sm["cat"] == m["cat"]), None)
@@ -372,6 +384,13 @@ def run(now: dt.datetime):
     global NOW
     NOW = now
     st = load_state()
+    try:
+        _run(st, now)
+    finally:
+        save_state(st)  # meme en cas d'erreur, pour ne pas perdre les decisions deja prises
+
+
+def _run(st: dict, now: dt.datetime):
     handle_decisions(st, now)
     S = Season(Client(), now)
     todo = []
@@ -394,10 +413,12 @@ def run(now: dt.datetime):
             if -12 * 60 <= delta < -20 and f"post:{m['race_id']}" not in st["posts"]:
                 payload = S.c.results(m["race_id"])
                 ok = stats.is_official(payload, m["_comp"])
+                print(f"[statut] {m['race_id']} : '{stats.status_text(payload, m['_comp'])}' officiel={ok}")
                 sig = hashlib.md5(json.dumps([(r.get("Rank"), r.get("IBUId"), r.get("TotalTime")) for r in (payload.get("Results") or [])[:30]]).encode()).hexdigest()
                 w = st["watch"].setdefault(m["race_id"], {})
-                stable = w.get("sig") == sig and delta < -90 and (payload.get("Results") or [])
+                stable = w.get("sig") == sig and delta < -60 and stats.has_results(payload, 10)
                 w["sig"] = sig
+                w["status"] = stats.status_text(payload, m["_comp"])
                 if ok or stable:
                     todo.append((f"post:{m['race_id']}", lambda m=m, p=payload: p_post_race(st, S, m, p)))
 
@@ -415,13 +436,14 @@ def run(now: dt.datetime):
         try:
             fn()
             st["posts"].setdefault(key, {"status": "skipped"})
+        except NotReady as nr:
+            print(f"[attente] {key} : {nr}")
         except Exception as exc:
             traceback.print_exc()
             attempts = (prev or {}).get("attempts", 0) + 1
             if attempts >= 3:
                 publish.notify(f"⚠️ Erreur en préparant {key} (3 essais) : {exc}")
             st["posts"][key] = {"status": "error", "error": str(exc)[:500], "attempts": attempts}
-    save_state(st)
 
 
 def main():

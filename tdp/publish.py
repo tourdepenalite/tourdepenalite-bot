@@ -117,12 +117,20 @@ def send_for_approval(key: str, urls: list[str], caption: str, story_url: str | 
 
 
 def notify(text: str):
-    _tg("sendMessage", chat_id=config.TELEGRAM_CHAT_ID, text=text[:4000])
+    try:
+        _tg("sendMessage", chat_id=config.TELEGRAM_CHAT_ID, text=text[:4000])
+    except Exception as exc:  # une alerte ratee ne doit pas arreter le bot
+        print("telegram: alerte non envoyee :", exc, "|", text[:200])
 
 
 def read_decisions(offset: int) -> tuple[list[tuple[str, str]], int]:
     """Lit les clics sur les boutons depuis le dernier passage (pas de serveur a heberger)."""
-    data = _tg("getUpdates", offset=offset, timeout=0, allowed_updates=["callback_query"])
+    try:
+        data = _tg("getUpdates", offset=offset, timeout=0, allowed_updates=["callback_query"])
+    except Exception as exc:
+        # Jeton Telegram invalide ou service indisponible : on continue sans les validations.
+        print("telegram: lecture des validations impossible :", exc)
+        return [], offset
     out = []
     for u in data.get("result", []):
         offset = max(offset, u["update_id"] + 1)
