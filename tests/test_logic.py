@@ -43,7 +43,7 @@ def test_approval_flow(monkeypatch=None):
                     "post:Y": {"status": "pending", "urls": ["u2"], "caption": "c", "expires": (now - dt.timedelta(hours=1)).isoformat()}},
           "tg_offset": 0}
     orig = publish.read_decisions
-    publish.read_decisions = lambda off: ([("ok", "post:X")], off + 1)
+    publish.read_decisions = lambda off: ([("ok", "post:X", {"chat_id": 1, "message_id": 2, "text": "post:X"})], off + 1)
     try:
         tick.handle_decisions(st, now)
     finally:

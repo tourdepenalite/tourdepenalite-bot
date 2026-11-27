@@ -147,7 +147,8 @@ def send_for_approval(key: str, urls: list[str], caption: str, stories: list[str
             _tg("sendMediaGroup", chat_id=config.TELEGRAM_CHAT_ID, media=[{"type": "photo", "media": u} for u in g])
     if stories:
         caption = f"{caption}\n\n({len(urls)} visuel(s) dans le fil, {len(stories)} story(s))"
-    _tg("sendMessage", chat_id=config.TELEGRAM_CHAT_ID, text=f"{key}\n\n{caption}"[:4000],
+    note = "\n\n⏱ Après ton clic, le bot le traite à son prochain passage (5 min max) et met ce message à jour."
+    _tg("sendMessage", chat_id=config.TELEGRAM_CHAT_ID, text=(f"{key}\n\n{caption}"[:3850] + note),
         reply_markup={"inline_keyboard": [[{"text": "✅ Publier", "callback_data": f"ok|{key}"},
                                            {"text": "❌ Annuler", "callback_data": f"no|{key}"}]]})
 
@@ -159,7 +160,18 @@ def notify(text: str):
         print("telegram: alerte non envoyee :", exc, "|", text[:200])
 
 
-def read_decisions(offset: int) -> tuple[list[tuple[str, str]], int]:
+def mark_message(ref: dict | None, status: str):
+    """Met a jour le message de validation : boutons retires, statut ajoute en tete."""
+    if not ref:
+        return
+    try:
+        _tg("editMessageText", chat_id=ref["chat_id"], message_id=ref["message_id"],
+            text=f"{status}\n\n{ref.get('text', '')}"[:4096])
+    except Exception as exc:  # message trop ancien ou deja modifie : sans importance
+        print("telegram: message non mis a jour :", exc)
+
+
+def read_decisions(offset: int) -> tuple[list[tuple[str, str, dict]], int]:
     """Lit les clics sur les boutons depuis le dernier passage (pas de serveur a heberger)."""
     try:
         data = _tg("getUpdates", offset=offset, timeout=0, allowed_updates=["callback_query"])
@@ -174,7 +186,9 @@ def read_decisions(offset: int) -> tuple[list[tuple[str, str]], int]:
         if not cq or str(cq.get("message", {}).get("chat", {}).get("id")) != str(config.TELEGRAM_CHAT_ID):
             continue
         action, _, key = (cq.get("data") or "").partition("|")
-        out.append((action, key))
+        msg = cq.get("message") or {}
+        out.append((action, key, {"chat_id": msg.get("chat", {}).get("id"), "message_id": msg.get("message_id"),
+                                  "text": msg.get("text", "")}))
         try:  # Telegram refuse de confirmer un clic trop ancien : sans importance, la decision est gardee
             _tg("answerCallbackQuery", callback_query_id=cq["id"], text="Publication lancée" if action == "ok" else "Annulé")
         except Exception as exc:
