@@ -517,17 +517,19 @@ def p_post_race(st, S: Season, m: dict, payload: dict):
     cap = captions.post_race(m, "\n".join(facts), cands, f"{w['last']} s'impose {templates.a_site_txt(m['site'])}",
                              "\n".join(x for x in fb if x), tags)
     slides = templates.results_carousel(m, rows, cap["headline"], cap.get("stat"))
-    alts = [f"Podium de {le(m['label'])} de Coupe du monde de biathlon {templates.a_site_txt(m['site'])} : "
-            f"1. {w['name']} ({w['nat']}), 2. {fin[1]['name']} ({fin[1]['nat']}), 3. {fin[2]['name']} ({fin[2]['nat']}).",
-            "Top 10 : " + ", ".join(f"{r['rank']}. {r['name']} ({r['nat']}, {fautes(r['misses_total'])})" for r in fin[:10]) + "."]
+    podium_alt = (f"Podium {('du ' + le(m['label'])[3:]) if le(m['label']).startswith('le ') else 'de ' + le(m['label'])} de Coupe du monde de biathlon {templates.a_site_txt(m['site'])} : "
+                  f"1. {w['name']} ({w['nat']}), 2. {fin[1]['name']} ({fin[1]['nat']}), 3. {fin[2]['name']} ({fin[2]['nat']}).")
+    alts = ["Top 10 : " + ", ".join(f"{r['rank']}. {r['name']} ({r['nat']}, {fautes(r['misses_total'])})" for r in fin[:10]) + "."]
     if cap.get("stat"):
         alts.append(f"Stat du jour : {cap['stat']['headline']}. {cap['stat']['detail']}")
     for r in home:
         ski = f", {o(r['ski'][1])} temps de ski" if r["ski"] else ""
         alts.append(f"Fiche de {r['name']} : {o(r['rank'])}{ski}, {r['shots'] - (r['misses_total'] or 0)}/{r['shots']} au tir.")
-    alts = alts[: len(slides)]
-    if len(slides) > len(alts):
-        alts.append("Les autres Français : " + ", ".join(f"{r['name']} {o(r['rank'])}" for r in home[len(alts) - 3:]) + ".")
+    alts = alts[: len(slides) - 1]
+    if len(slides) - 1 > len(alts):
+        shown = len(alts) - (2 if cap.get("stat") else 1)
+        alts.append("Les autres Français : " + ", ".join(f"{r['name']} {o(r['rank'])}" for r in home[shown:]) + ".")
+    alts.append(podium_alt)
     clean = stats.clean_sheets(rows)
     best_shooters = sorted([r for r in fin if r["shots"]], key=lambda r: (r["misses_total"] or 0, r["rank"]))[:5]
     stories = ([templates.story_bleus(m, home)] if home else []) + [templates.story_sans_faute(m, clean, best_shooters)]
