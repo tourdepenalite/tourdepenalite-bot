@@ -767,7 +767,7 @@ def p_reel(st, S: Season, m: dict):
     cap = captions.generic("Reel qui rejoue la course tir par tir", "\n".join(facts), "Revivre la course", "\n".join(fb),
                            [m["site"], f"{w['first']} {w['last']}"])
     path = OUT / f"reel:{m['race_id']}".replace(":", "_") / "reel.mp4"
-    reel.record(data, path)
+    reel.record(data, path, audio=reel.pick_music(m["race_id"], reel.duration(data)))
     produce_video(st, f"reel:{m['race_id']}", "reel", path, cap["caption"], thumb_ms=1600)
 
 
