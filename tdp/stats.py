@@ -198,6 +198,7 @@ def individual_results(client: Client, race_id: str, payload: dict | None = None
             "misses": misses, "misses_total": sum(misses) if misses else None,
             "shots": 5 * len(misses), "irm": r.get("IRM") or "",
             "ski": ski.get(ibu), "range": rng.get(ibu), "shoot": sht.get(ibu),
+            "wc": _int(r.get("WC")),  # points Coupe du monde publies par l'IBU
         })
     rows.sort(key=lambda x: (x["rank"] is None, x["rank"] or 999))
     return rows
@@ -292,6 +293,30 @@ def u23_standings(client: Client, rows: list[dict], first_race: dt.date, limit: 
         if age < 23:
             out.append({**r, "age": age})
     return out
+
+
+WC_POINTS = [90, 75, 60, 50, 45, 40, 36, 34, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21,
+             20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
+
+
+def in_form(races: list[tuple[dict, list[dict]]], exclude: set[str]) -> dict | None:
+    """Athlete le plus en forme sur un ensemble de courses (l'etape precedente) :
+    le plus de points Coupe du monde, puis le meilleur resultat."""
+    tot = {}
+    for _, rows in races:
+        for r in rows:
+            if not r["rank"]:
+                continue
+            pts = r.get("wc")
+            if pts is None:
+                pts = WC_POINTS[r["rank"] - 1] if r["rank"] <= len(WC_POINTS) else 0
+            t = tot.setdefault(r["ibu"], {**r, "pts": 0, "podiums": 0, "best": 99, "n": 0})
+            t["pts"] += pts
+            t["podiums"] += r["rank"] <= 3
+            t["best"] = min(t["best"], r["rank"])
+            t["n"] += 1
+    cands = [t for k, t in tot.items() if k not in exclude and t["pts"] > 0]
+    return max(cands, key=lambda t: (t["pts"], -t["best"]), default=None)
 
 
 def movers(before: dict[str, int], after: list[dict], n: int = 3) -> dict:

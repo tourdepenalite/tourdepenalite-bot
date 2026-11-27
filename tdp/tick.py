@@ -281,6 +281,17 @@ def p_programme(st, S: Season, ev):
             items.append(("LA FRANÇAISE À SUIVRE" if fem else "LE FRANÇAIS À SUIVRE", home["name"], home["nat"],
                           f"{o(home['rank'])} {ctx}, {home['score']} pts"))
             facts.append(f"{'Meilleure Française' if fem else 'Meilleur Français'} {ctx} : {home['name']}, {home['rank']}e.")
+        # En forme : le plus de points sur l'etape precedente (hors athletes deja affiches)
+        prev_races = [(m, r) for m, r in S.finished_races() if m["cat"] == cat and m["event_id"] != ev["EventId"]]
+        if prev_races:
+            last_ev = prev_races[-1][0]["event_id"]
+            last = [(m, r) for m, r in prev_races if m["event_id"] == last_ev]
+            f = stats.in_form(last, {a["ibu"]} | ({home["ibu"]} if home else set()))
+            if f:
+                where = templates.a_site_txt(last[0][0]["site"])
+                pod = f", {f['podiums']} podium{'s' if f['podiums'] > 1 else ''}" if f["podiums"] else ""
+                items.append(("EN FORME", f["name"], f["nat"], f"{f['pts']} pts {where}{pod}"))
+                facts.append(f"En forme : {f['name']} ({f['nat']}), {f['pts']} points {where}.")
         enjeux[cat] = items
     slides = templates.programme(site, day_list, len(metas), len(days), enjeux)
     fb = [f"📅 Le programme de la Coupe du monde de biathlon {templates.a_site_txt(site)}",

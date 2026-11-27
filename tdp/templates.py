@@ -351,12 +351,12 @@ def programme(site: str, days: list[tuple[str, list[tuple[str, str]]]], n_races:
                 continue
             col = config.FLASH_BY_CAT.get(cat, "var(--flash)") if config.THEME != "nuit" else "var(--flash)"
             cards = "".join(
-                f"<div style='background:{FR_BG if n == HOME else ROW};border-radius:18px;padding:26px 26px;margin-bottom:16px;min-height:215px'>"
+                f"<div style='background:{FR_BG if n == HOME else ROW};border-radius:18px;padding:22px 24px;margin-bottom:14px;min-height:190px'>"
                 f"<div style='font-size:21px;color:{col};font-weight:800;letter-spacing:.08em'>{e(k)}</div>"
                 f"<div style='display:flex;align-items:center;gap:12px;margin-top:12px'>{nat(n, 34)}"
                 f"<div class='{'fr' if n == HOME else ''}' style='font-size:36px;font-weight:900;line-height:1.05'>{e(v)}</div></div>"
                 f"<div style='font-size:24px;color:var(--soft);margin-top:12px;line-height:1.3'>{e(sub)}</div></div>"
-                for k, v, n, sub in items[:2])
+                for k, v, n, sub in items[:3])
             cols += (f"<div style='flex:1;min-width:0'><div style='font-size:30px;font-weight:900;color:{col};margin-bottom:14px'>"
                      f"{'Femmes' if cat == 'SW' else 'Hommes'}</div>{cards}</div>")
         s2 = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker('LES ENJEUX')}<div class='h' style='font-size:58px;white-space:nowrap'>Ce qu'il faut suivre ce week-end</div></div>
