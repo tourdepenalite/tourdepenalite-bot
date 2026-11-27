@@ -20,6 +20,7 @@ SCHEDULE = {
     "pre_race_minutes": 120,                    # 2 h avant le depart
     "bilan": {"weekday": 0, "hour": 9},        # lundi 9h
     "bleus": {"weekday": 1, "hour": 9},        # mardi 9h
+    "duel": {"weekday": 1, "hour": 13},        # mardi 13h
 }
 MAX_CAROUSEL = 10            # limite Meta (doc officielle)
 MAX_FR_SLIDES = 6            # au-dela, les Francais restants vont dans une slide tableau

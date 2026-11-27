@@ -600,6 +600,34 @@ def p_bleus(st, S: Season, ev, cat: str):
     produce(st, f"bleus:{ev['EventId']}:{cat}", "bleus", templates.bleus(cat, site, athletes), cap["caption"])
 
 
+def p_duel(st, S: Season, ev):
+    """Mardi : leader du general contre le meilleur Francais (ou le 2e si le leader est francais), femmes puis hommes."""
+    races = S.finished_races()
+    site = next((m["site"] for m, _ in races if m["event_id"] == ev["EventId"]), None)
+    if not site:
+        return
+    slides, facts, names = [], [], []
+    duels = []
+    for cat in ("SW", "SM"):
+        d = stats.duel(stats.standings(S.c, S.id, cat), [(m, r) for m, r in races if m["cat"] == cat], config.HOME_NAT)
+        if d:
+            duels.append((cat, d))
+    for i, (cat, d) in enumerate(duels):
+        slides.append(templates.duel(cat, site, d, i + 1, len(duels)))
+        a, b = d["a"], d["b"]
+        o = stats.ordinal_f if cat == "SW" else stats.ordinal
+        facts.append(f"{'Femmes' if cat == 'SW' else 'Hommes'} : {a['name']} ({a['nat']}, {o(1)} du général, {a['score']} pts, "
+                     f"{a['wins']} victoire(s)) contre {b['name']} ({b['nat']}, {o(b['rank'])}, {b['score']} pts, {b['wins']} victoire(s)). "
+                     f"Écart {d['gap']} pts. Face-à-face cette saison : {d['h2h'][0]}-{d['h2h'][1]}.")
+        names += [a["name"], b["name"]]
+    if not slides:
+        return
+    fb = ["⚔️ Le duel de la semaine", "\n".join(facts), "Qui finira devant à la fin de la saison ?"]
+    cap = captions.generic("duel de la semaine (comparaison de deux athlètes au général)", "\n".join(facts),
+                           "Le duel de la semaine", "\n\n".join(fb), ["duel"] + names[:2])
+    produce(st, f"duel:{ev['EventId']}", "duel", slides, cap["caption"])
+
+
 # ================================================================ boucle
 
 def finished(st: dict, key: str) -> bool:
@@ -664,6 +692,8 @@ def _run(st: dict, now: dt.datetime):
     if done and at(now, config.SCHEDULE["bleus"]):
         for cat in ("SM", "SW"):
             todo.append((f"bleus:{done['EventId']}:{cat}", lambda cat=cat: p_bleus(st, S, done, cat)))
+    if done and at(now, config.SCHEDULE["duel"]):
+        todo.append((f"duel:{done['EventId']}", lambda: p_duel(st, S, done)))
 
     for key, fn in todo:
         prev = st["posts"].get(key)

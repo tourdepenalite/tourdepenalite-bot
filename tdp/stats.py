@@ -539,3 +539,36 @@ def athlete_week(ibu: str, event_races: list[tuple[dict, list[dict]]], season_ra
     return {"week": agg(wk), "season": agg(ss),
             "week_by_disc": [(m["disc"], r["rank"]) for m, r in wk],
             "form": [r["rank"] for _, r in ss][-6:]}
+
+
+def duel(gen: list[dict], season_races: list[tuple[dict, list[dict]]], home: str = "FRA") -> dict | None:
+    """Duel du mardi : leader du général contre le meilleur Francais (ou contre le 2e si le leader est francais)."""
+    if len(gen) < 2:
+        return None
+    lead = gen[0]
+    if lead["nat"] == home:
+        other, rule = gen[1], "2e"
+    else:
+        other = next((g for g in gen[1:] if g["nat"] == home), None)
+        other, rule = (other, "fr") if other else (gen[1], "2e")
+
+    def card(g):
+        res = [r for _, rows in season_races for r in rows if r["ibu"] == g["ibu"]]
+        ranks = [r["rank"] for r in res if r["rank"]]
+        hits = sum(r["shots"] - (r["misses_total"] or 0) for r in res)
+        shots = sum(r["shots"] for r in res)
+        ski = [r["ski"][1] for r in res if r["ski"]]
+        return {**g, "n": len(res), "wins": sum(1 for x in ranks if x == 1),
+                "podiums": sum(1 for x in ranks if x <= 3), "top10": sum(1 for x in ranks if x <= 10),
+                "best": min(ranks) if ranks else None,
+                "tir": round(100 * hits / shots) if shots else None,
+                "ski": round(mean(ski)) if ski else None}
+
+    a, b = card(lead), card(other)
+    h2h = [0, 0]
+    for _, rows in season_races:
+        ra = next((r["rank"] for r in rows if r["ibu"] == a["ibu"] and r["rank"]), None)
+        rb = next((r["rank"] for r in rows if r["ibu"] == b["ibu"] and r["rank"]), None)
+        if ra and rb:
+            h2h[0 if ra < rb else 1] += 1
+    return {"a": a, "b": b, "gap": a["score"] - b["score"], "h2h": h2h, "rule": rule}
