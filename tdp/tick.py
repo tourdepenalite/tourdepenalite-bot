@@ -252,18 +252,37 @@ def p_programme(st, S: Season, ev):
         d = m["start"].date()
         days.setdefault(d, []).append((m["start"].strftime("%H:%M"), m["label"][0].upper() + m["label"][1:]))
     day_list = [(JOURS[d.weekday()], v) for d, v in sorted(days.items())]
-    enjeux, facts = [], [f"Étape : {site}, {len(metas)} courses sur {len(days)} jours."]
+    enjeux, facts = {}, [f"Étape : {site}, {len(metas)} courses sur {len(days)} jours."]
+    prev = S.previous_id()
     for cat in ("SM", "SW"):
+        fem = cat == "SW"
+        o = stats.ordinal_f if fem else stats.ordinal
         rows = stats.standings(S.c, S.id, cat)
-        if len(rows) >= 2 and rows[0]["score"] > 0:
-            a, b = rows[0], rows[1]
+        current = len(rows) >= 2 and rows[0]["score"] > 0
+        if not current:  # premiere etape : classement de la saison passee
+            rows = stats.standings(S.c, prev, cat)
+        if not rows:
+            continue
+        items = []
+        a = rows[0]
+        if current:
+            b = rows[1]
             d = a["score"] - b["score"]
-            enjeux.append((f"DOSSARD JAUNE · {config.CATEGORIES[cat].upper()}", f"{a['name']} ({a['nat']})", f"{d} pts d'avance sur {b['name']}" if d else f"À égalité avec {b['name']}"))
-            facts.append(f"Leader {config.CATEGORIES[cat]} : {a['name']} {a['nat']}, {a['score'] - b['score']} points devant {b['name']}.")
-            home = next((r for r in rows if r["nat"] == config.HOME_NAT), None)
-            if home:
-                facts.append(f"Meilleur(e) Français(e) {config.CATEGORIES[cat]} : {home['name']}, {home['rank']}e.")
-    slides = templates.programme(site, day_list, len(metas), len(days), enjeux[:3])
+            items.append(("DOSSARD JAUNE", a["name"], a["nat"],
+                          f"{d} pts d'avance sur {b['name']}" if d else f"À égalité avec {b['name']}"))
+            facts.append(f"Leader {config.CATEGORIES[cat]} : {a['name']} {a['nat']}, {d} points devant {b['name']}.")
+        else:
+            items.append(("TENANTE DU GROS GLOBE" if fem else "TENANT DU GROS GLOBE", a["name"], a["nat"],
+                          f"{'1re' if fem else '1er'} du général {prev[:2]}-{prev[2:]}, {a['score']} pts"))
+            facts.append(f"Vainqueur du général {config.CATEGORIES[cat]} la saison passée : {a['name']} {a['nat']}.")
+        home = next((r for r in rows if r["nat"] == config.HOME_NAT and r["ibu"] != a["ibu"]), None)
+        if home:
+            ctx = "au général" if current else f"du général {prev[:2]}-{prev[2:]}"
+            items.append(("LA FRANÇAISE À SUIVRE" if fem else "LE FRANÇAIS À SUIVRE", home["name"], home["nat"],
+                          f"{o(home['rank'])} {ctx}, {home['score']} pts"))
+            facts.append(f"{'Meilleure Française' if fem else 'Meilleur Français'} {ctx} : {home['name']}, {home['rank']}e.")
+        enjeux[cat] = items
+    slides = templates.programme(site, day_list, len(metas), len(days), enjeux)
     fb = [f"📅 Le programme de la Coupe du monde de biathlon {templates.a_site_txt(site)}",
           f"{len(metas)} courses en {len(days)} jours, heures françaises dans le carrousel 👉",
           "Enregistrez le post pour ne rien manquer. Quelle course attendez-vous le plus ?"]
