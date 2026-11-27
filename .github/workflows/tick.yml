@@ -38,8 +38,11 @@ jobs:
           restore-keys: tdp-
       - run: pip install -r requirements.txt
       - run: python -m playwright install --with-deps chromium
-      - name: Police emoji (drapeaux)
-        run: sudo apt-get install -y fonts-noto-color-emoji
+      - name: Polices (Inter pour les textes, emoji pour les drapeaux)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-inter fonts-noto-color-emoji
+          fc-list | grep -ci "inter" || (echo "Police Inter absente" && exit 1)
       - name: Run
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
