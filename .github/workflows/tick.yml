@@ -41,7 +41,7 @@ jobs:
       - name: Polices (Inter pour les textes, emoji pour les drapeaux)
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq fonts-inter fonts-noto-color-emoji
+          sudo apt-get install -y -qq fonts-inter fonts-noto-color-emoji ffmpeg
           fc-list | grep -ci "inter" || (echo "Police Inter absente" && exit 1)
       - name: Run
         env:

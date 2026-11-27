@@ -88,6 +88,11 @@ def race(race_id, disc, cat, start_iso):
                      "StartTime": (t_start + _dt.timedelta(seconds=(30 if disc in ("SP", "IN") else (round(i * 7.3, 1) if disc == "PU" else 0)) * (order[i] - 1 if disc in ("SP", "IN") else 1) if disc != "PU" else round(i * 7.3, 1))).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-5] + "Z"})
         for k, v in (("CRST", r["ski"]), ("RNGT", r["rng"]), ("STTM", r["shoot"])):
             ana[k].append({"IBUId": a["IBUId"], "TotalTime": fmt(v), "IsTeam": False})
+        if not dnf:   # temps par tour (tir et penalites compris) et temps de ski par tour : somme = temps final
+            for k in range(stages + 1):
+                lap = r["ski"] / (stages + 1) + ((r["rng"] / stages + 25 * r["misses"][k]) if k < stages else 0)
+                ana.setdefault(f"LAP{k + 1}", []).append({"IBUId": a["IBUId"], "Result": fmt(lap), "IsTeam": False})
+                ana.setdefault(f"CRS{k + 1}", []).append({"IBUId": a["IBUId"], "Result": fmt(r["ski"] / (stages + 1)), "IsTeam": False})
     comp = {"RaceId": race_id, "DisciplineId": disc, "catId": cat, "ShortDescription": f"{'Men' if cat=='SM' else 'Women'} {km}km {disc}", "km": km, "StartTime": start_iso, "StatusText": "Official Results",
             "PenaltySeconds": 60 if disc == "IN" else 0, "NrShootings": stages}
     (OUT / f"weather_{race_id}.json").write_text(json.dumps({"AirTemperature_C": -6, "AirTemperatureDec_C": -5.6, "WeatherCondition": "Light snow",
