@@ -67,4 +67,11 @@ jobs:
           git config user.name "tdp-bot"
           git config user.email "tdp-bot@users.noreply.github.com"
           if [ -f state.json ]; then git add state.json; fi
-          git diff --cached --quiet || (git commit -m "state $(date -u +%FT%TZ)" && git push)
+          git diff --cached --quiet && exit 0
+          git commit -m "state $(date -u +%FT%TZ)"
+          # Si du code a ete fusionne pendant le run, on se recale dessus avant d'envoyer l'etat.
+          for i in 1 2 3; do
+            git pull --rebase -X theirs origin main && git push && exit 0
+            sleep 5
+          done
+          exit 1
