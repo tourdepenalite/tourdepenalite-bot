@@ -1,11 +1,21 @@
 {
- "posts": {},
+ "posts": {
+  "post:BT2627SWRLCP01SMIN": {
+   "status": "error",
+   "error": "400 Client Error: Bad Request for url: https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/tdp-posts/post/BT2627SWRLCP01SMIN/20261127102656_s_01.jpg",
+   "attempts": 1
+  }
+ },
  "tg_offset": 969544652,
  "snapshots": {},
  "watch": {
   "BT2627SWRLCP01SWIN": {
    "sig": "280dcfe4e99cd7946b92519355f6522e",
    "status": "Start List | Start List"
+  },
+  "BT2627SWRLCP01SMIN": {
+   "sig": "5a168f2fe548917cd4f6d246354b9526",
+   "status": "Final | Final"
   }
  }
 }
