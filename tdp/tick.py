@@ -236,14 +236,15 @@ def p_classement(st, S: Season, ev):
         d = a['score'] - b['score']
         head = f"Égalité en tête entre {a['last']} et {b['last']}" if d == 0 else f"{d} point{'s' if d > 1 else ''} entre {a['last']} et {b['last']}"
         facts.append(f"{config.CATEGORIES[cat]} : {a['name']} {a['score']} pts, {b['name']} {b['score']} pts.")
-        slides_data.append((f"CLASSEMENT GÉNÉRAL · {config.CATEGORIES[cat].upper()}", rows, head, f"Après {len(races)} courses · ⬤ dossard jaune", False))
+        slides_data.append((f"CLASSEMENT GÉNÉRAL · {config.CATEGORIES[cat].upper()}", rows, head, f"Après {len(races)} courses · ⬤ dossard jaune", False, cat))
         young = stats.u23_standings(S.c, rows, first_race)
         for i, y in enumerate(young):
             y["young_rank"] = i + 1
         if young:
-            slides_data.append((f"CLASSEMENT U23 · {config.CATEGORIES[cat].upper()}", young, f"{young[0]['name']}, {'meilleure' if cat == 'SW' else 'meilleur'} jeune", "Moins de 23 ans · (rang au général)", True))
+            slides_data.append((f"CLASSEMENT U23 · {config.CATEGORIES[cat].upper()}", young, f"{young[0]['name']}, {'meilleure' if cat == 'SW' else 'meilleur'} jeune", "Moins de 23 ans · (rang au général)", True, cat))
     total = len(slides_data)
-    slides = [templates.standings_slide(k, r, h, f"Avant {templates.apres_site(site)}", i + 1, total, n, y) for i, (k, r, h, n, y) in enumerate(slides_data)]
+    slides = [templates.standings_slide(k, r, h, f"Avant {templates.apres_site(site)}", i + 1, total, n, y, c)
+              for i, (k, r, h, n, y, c) in enumerate(slides_data)]
     cap = captions.generic("classements généraux avant l'étape", "\n".join(facts), "", "\n".join(facts))
     produce(st, f"gen:{ev['EventId']}", "classement", slides, cap["caption"])
 

@@ -6,25 +6,25 @@ from html import escape
 from . import config
 from .stats import fmt_gap, fmt_time, ordinal, ordinal_f
 
-O, GREY, MUTED, FR_BG, ROW = "#ff5a1f", "#9aa4b2", "#6b7686", "#16243f", "#151b24"
+O, GREY, MUTED, FR_BG, ROW = "var(--flash)", "var(--grey)", "var(--muted)", "var(--fr-bg)", "var(--row)"
 
 CSS = """
 *{box-sizing:border-box;margin:0;padding:0}
-body{width:1080px;background:#0d1117;color:#f2f4f7;font-family:'Inter Display','Inter',sans-serif;position:relative;overflow:hidden}
+body{width:1080px;background:var(--bg-grad, var(--bg));color:var(--ink);font-family:'Inter Display','Inter',sans-serif;position:relative;overflow:hidden}
 .top{position:absolute;top:56px;left:72px;right:72px;display:flex;justify-content:space-between;align-items:center}
 .brand{font-weight:800;letter-spacing:.14em;font-size:26px;display:flex;align-items:center;gap:14px}
-.dot{width:26px;height:26px;border-radius:50%;border:5px solid #ff5a1f;position:relative}
-.dot:after{content:'';position:absolute;inset:4px;border-radius:50%;background:#ff5a1f}
-.hd{text-align:right;font-size:22px;color:#9aa4b2;font-weight:600;letter-spacing:.08em;line-height:1.4;text-transform:uppercase}
-.hd b{color:#f2f4f7}
-.foot{position:absolute;bottom:52px;left:72px;right:72px;display:flex;justify-content:space-between;font-size:22px;color:#6b7686;font-weight:600}
-.mock{position:absolute;top:640px;left:-80px;transform:rotate(-30deg);font-size:64px;font-weight:900;color:rgba(255,255,255,.05);white-space:nowrap;letter-spacing:.1em}
-.nat{display:inline-block;font-size:20px;font-weight:800;padding:4px 10px;border-radius:6px;background:#1f2733;color:#c5ccd6;letter-spacing:.06em}
-.nat.FRA{background:#1d3fa8;color:#fff}
-.fr{color:#7da2ff}
-.t{display:inline-block;border-radius:50%;margin-right:6px;border:3px solid #f2f4f7;background:#f2f4f7}
-.t.miss{background:transparent;border-color:#ff5a1f}
-.k{font-size:30px;color:#ff5a1f;font-weight:800;letter-spacing:.1em}
+.dot{width:26px;height:26px;border-radius:50%;border:5px solid var(--flash);position:relative}
+.dot:after{content:'';position:absolute;inset:4px;border-radius:50%;background:var(--flash)}
+.hd{text-align:right;font-size:22px;color:var(--grey);font-weight:600;letter-spacing:.08em;line-height:1.4;text-transform:uppercase}
+.hd b{color:var(--ink)}
+.foot{position:absolute;z-index:2;bottom:52px;left:72px;right:72px;display:flex;justify-content:space-between;font-size:22px;color:var(--muted);font-weight:600}
+.mock{position:absolute;top:640px;left:-80px;transform:rotate(-30deg);font-size:64px;font-weight:900;color:var(--wm);white-space:nowrap;letter-spacing:.1em}
+.nat{display:inline-block;font-size:20px;font-weight:800;padding:4px 10px;border-radius:6px;background:var(--chip);color:var(--soft);letter-spacing:.06em}
+.nat.FRA{background:var(--fr-strong);color:#fff}
+.fr{color:var(--fr)}
+.t{display:inline-block;border-radius:50%;margin-right:6px;border:3px solid var(--ink);background:var(--ink)}
+.t.miss{background:transparent;border-color:var(--flash)}
+.k{font-size:30px;color:var(--flash);font-weight:800;letter-spacing:.1em}
 .h{font-weight:900;line-height:1.04;margin-top:10px}
 .num{font-variant-numeric:tabular-nums}
 """
@@ -39,10 +39,40 @@ def e(x) -> str:
     return escape(str(x if x is not None else ""))
 
 
+_CAT: str | None = None  # categorie du visuel en cours (SW, SM, ou None = generique)
+
+
+def set_cat(cat: str | None):
+    global _CAT
+    _CAT = cat if cat in ("SW", "SM") else None
+
+
+def _theme_css() -> str:
+    t = config.THEMES[config.THEME]
+    v = dict(t["vars"])
+    if config.THEME != "nuit":
+        v["flash"] = config.FLASH_BY_CAT.get(_CAT, config.FLASH_BY_CAT[None])
+    return ":root{" + ";".join(f"--{k}:{val}" for k, val in v.items()) + "}"
+
+
+def _decor(height: int) -> str:
+    """Silhouette de montagnes en bas de page (theme neige)."""
+    t = config.THEMES[config.THEME]
+    if not t.get("mountains"):
+        return ""
+    y = height - 330
+    return f"""<svg style='position:absolute;left:0;top:{y}px;width:1080px;height:330px;z-index:0' viewBox='0 0 1080 330'>
+<polygon points='0,150 90,95 170,130 260,60 350,115 450,45 560,120 650,80 760,135 860,55 960,110 1080,70 1080,330 0,330' fill='var(--mount3)'/>
+<polygon points='0,200 110,120 200,170 320,70 420,160 530,110 640,185 770,90 880,170 990,125 1080,170 1080,330 0,330' fill='var(--mount2)'/>
+<path d='M320,70 L345,94 L360,86 L378,104 L392,98 L420,160 L320,70 Z' fill='#ffffff' opacity='.9'/>
+<path d='M770,90 L794,112 L808,104 L826,124 L840,118 L880,170 L770,90 Z' fill='#ffffff' opacity='.9'/>
+<polygon points='0,260 140,200 250,240 380,175 510,245 640,205 760,255 900,195 1080,250 1080,330 0,330' fill='var(--mount1)'/></svg>"""
+
+
 def page(body: str, h1: str, h2: str, idx: int = 0, total: int = 0, height: int = 1350) -> str:
     count = f" · {idx}/{total}" if total else ""
     mock = "<div class='mock'>MAQUETTE · DONNÉES FICTIVES</div>" if config.WATERMARK else ""
-    return f"""<html><head><meta charset='utf-8'><style>{CSS}body{{height:{height}px}}</style></head><body>
+    return f"""<html><head><meta charset='utf-8'><style>{_theme_css()}{CSS}body{{height:{height}px}}</style></head><body>{_decor(height)}
 <div class='top'><div class='brand'><span class='dot'></span>TOUR DE PÉNALITÉ</div><div class='hd'><b>{e(h1)}</b><br>{e(h2)}</div></div>
 {body}{mock}
 <div class='foot'><span>@tourdepenalite</span><span>Données : IBU{count}</span></div></body></html>"""
@@ -130,6 +160,7 @@ def _split_name(name: str):
 # ================================================================ APRES COURSE
 
 def results_carousel(meta: dict, rows: list[dict], headline: str, stat: dict | None) -> list[str]:
+    set_cat(meta.get("cat"))
     fin = [r for r in rows if r["rank"]]
     home = [r for r in fin if r["nat"] == HOME]
     solo = home[: config.MAX_FR_SLIDES]
@@ -157,8 +188,8 @@ def _podium(meta, fin, headline, h1, h2, total):
     for r in order:
         cls = "fr" if r["nat"] == HOME else ""
         val = fmt_time(r["time_s"]) if r["rank"] == 1 else fmt_gap(r["behind_s"])
-        bg = O if r["rank"] == 1 else "#1f2733"
-        fg = "#0d1117" if r["rank"] == 1 else "#f2f4f7"
+        bg = O if r["rank"] == 1 else "var(--chip)"
+        fg = "var(--on-flash)" if r["rank"] == 1 else "var(--ink)"
         cols += f"""<div style='flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end'>
 <div style='font-size:28px;color:{GREY};font-weight:600'>{e(r['first'])}</div>
 <div class='{cls}' style='font-size:{44 if len(r['last'])<12 else 34}px;font-weight:900;text-transform:uppercase;margin:2px 0 12px;text-align:center;line-height:1'>{e(r['last'])}</div>
@@ -210,12 +241,12 @@ def _athlete(meta, r, i, n, h1, h2, idx, total):
     bouts = ""
     for k, m in enumerate(r["misses"]):
         label = stages[k] if k < len(stages) else f"Tir {k+1}"
-        bouts += f"""<div style='display:flex;justify-content:space-between;align-items:center;padding:{18 if len(r['misses'])>2 else 22}px 0;border-top:1px solid #222b37'>
+        bouts += f"""<div style='display:flex;justify-content:space-between;align-items:center;padding:{18 if len(r['misses'])>2 else 22}px 0;border-top:1px solid var(--line)'>
 <span style='font-size:30px;font-weight:700;width:200px'>{e(label)}</span><span>{shots([m], 40)}</span>
-<span style='font-size:30px;font-weight:800;width:90px;text-align:right;color:{O if m else '#f2f4f7'}'>{5-m}/5</span></div>"""
+<span style='font-size:30px;font-weight:800;width:90px;text-align:right;color:{O if m else 'var(--ink)'}'>{5-m}/5</span></div>"""
 
     def card(t, v, rk):
-        col = O if rk and rk <= 3 else "#c5ccd6"
+        col = O if rk and rk <= 3 else "var(--soft)"
         return f"""<div style='flex:1;background:{ROW};border-radius:18px;padding:28px'>
 <div style='font-size:24px;color:{GREY};font-weight:700;letter-spacing:.08em'>{t}</div>
 <div class='num' style='font-size:56px;font-weight:900;margin-top:8px'>{e(v)}</div>
@@ -228,7 +259,7 @@ def _athlete(meta, r, i, n, h1, h2, idx, total):
     rank_txt = _ord(meta, r["rank"])
     num, suf = (rank_txt[:-2], rank_txt[-2:]) if rank_txt.endswith(("er", "re")) else (rank_txt[:-1], rank_txt[-1:])
     body = f"""<div style='position:absolute;top:190px;left:72px;right:72px;display:flex;justify-content:space-between;align-items:flex-end'>
-<div>{kicker(f'🇫🇷 {label} · {i}/{n}', '#7da2ff')}<div style='font-size:34px;color:{GREY};font-weight:600;margin-top:16px'>{e(r['first'])}</div>
+<div>{kicker(f'🇫🇷 {label} · {i}/{n}', 'var(--fr)')}<div style='font-size:34px;color:{GREY};font-weight:600;margin-top:16px'>{e(r['first'])}</div>
 <div style='font-size:{92 if len(r['last'])<11 else 70}px;font-weight:900;text-transform:uppercase;line-height:1'>{e(r['last'])}</div></div>
 <div style='text-align:right'><div style='font-size:170px;font-weight:900;line-height:.85;color:{O}'>{num}<span style='font-size:80px'>{suf}</span></div>
 <div class='num' style='font-size:32px;font-weight:700;color:{GREY};margin-top:10px'>{e(fmt_gap(r['behind_s']) if r['rank']>1 else fmt_time(r['time_s']))}</div></div></div>
@@ -236,27 +267,28 @@ def _athlete(meta, r, i, n, h1, h2, idx, total):
 <div style='position:absolute;top:790px;left:72px;right:72px'>
 <div style='display:flex;justify-content:space-between;font-size:24px;color:{GREY};font-weight:700;letter-spacing:.08em;margin-bottom:10px'>
 <span>TIR</span><span>Temps de tir : {e(fmt_time(sht[0]))} ({e(ordinal(sht[1]) if sht[1] else '-')})</span></div>{bouts}
-<div style='display:flex;justify-content:space-between;align-items:center;padding:20px 0;border-top:1px solid #222b37'>
+<div style='display:flex;justify-content:space-between;align-items:center;padding:20px 0;border-top:1px solid var(--line)'>
 <span style='font-size:30px;font-weight:700'>Total</span><span style='font-size:40px;font-weight:900'>{hits}/{r['shots']}</span></div></div>"""
     return page(body, h1, h2, idx, total)
 
 
 def _home_table(meta, rest, h1, h2, idx, total):
-    rows = "".join(f"""<div style='display:flex;align-items:center;padding:22px 0;border-top:1px solid #222b37;font-size:32px'>
+    rows = "".join(f"""<div style='display:flex;align-items:center;padding:22px 0;border-top:1px solid var(--line);font-size:32px'>
 <span style='width:110px;font-weight:900;color:{GREY}'>{_ord(meta, r['rank'])}</span><span class='fr' style='flex:1;font-weight:800'>{e(r['name'])}</span>
 <span style='width:300px'>{shots(r['misses'],14,12,4) if len(r['misses'])<=2 else shots(r['misses'],10,8,3)}</span><span class='num' style='width:160px;text-align:right'>{e(fmt_gap(r['behind_s']))}</span></div>""" for r in rest)
-    body = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker('LES AUTRES BLEUS' if meta['cat']!='SW' else 'LES AUTRES BLEUES', '#7da2ff')}{title('Le reste de l’équipe', 64)}</div>
+    body = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker('LES AUTRES BLEUS' if meta['cat']!='SW' else 'LES AUTRES BLEUES', 'var(--fr)')}{title('Le reste de l’équipe', 64)}</div>
 <div style='position:absolute;top:380px;left:72px;right:72px'>{rows}</div>"""
     return page(body, h1, h2, idx, total)
 
 
 def relay_image(meta: dict, teams: list[dict], headline: str) -> list[str]:
+    set_cat(meta.get("cat"))  # relais mixtes (MX) : couleur generique
     fin = [t for t in teams if t["rank"]]
     rows = ""
     for t in fin[:8]:
         fr = t["nat"] == HOME
         val = fmt_time(t["time_s"]) if t["rank"] == 1 else fmt_gap(t["behind_s"])
-        rows += f"""<div style='display:flex;align-items:center;padding:0 26px;height:78px;border-radius:14px;margin-bottom:9px;background:{FR_BG if fr else ('#2a1a12' if t['rank']==1 else ROW)}'>
+        rows += f"""<div style='display:flex;align-items:center;padding:0 26px;height:78px;border-radius:14px;margin-bottom:9px;background:{FR_BG if fr else ('var(--lead-bg)' if t['rank']==1 else ROW)}'>
 <div style='width:80px;font-size:38px;font-weight:900;color:{O if t['rank']<=3 else GREY}'>{t['rank']}</div>
 <div class='{'fr' if fr else ''}' style='flex:1;font-size:34px;font-weight:800;display:flex;align-items:center;gap:18px'>{nat(t['nat'], 38)}{e(NAT_FR.get(t['nat'], t['nat']))}</div>
 <div style='width:260px;font-size:24px;color:{GREY}'>{t['penalties']} tour(s) · {t['spares']} pioche(s)</div>
@@ -271,8 +303,9 @@ def relay_image(meta: dict, teams: list[dict], headline: str) -> list[str]:
 # ================================================================ AVANT COURSE
 
 def pre_race(meta: dict, headline: str, lines: list[tuple[str, str]], favs: list[dict], key_point: str) -> tuple[str, str]:
+    set_cat(meta.get("cat"))
     def line(k, v):
-        return f"<div style='display:flex;justify-content:space-between;padding:22px 0;border-top:1px solid #222b37;font-size:32px'><span style='color:{GREY};font-weight:600'>{e(k)}</span><span style='font-weight:800'>{e(v)}</span></div>"
+        return f"<div style='display:flex;justify-content:space-between;padding:22px 0;border-top:1px solid var(--line);font-size:32px'><span style='color:{GREY};font-weight:600'>{e(k)}</span><span style='font-weight:800'>{e(v)}</span></div>"
     fav = ""
     for i, r in enumerate(favs):
         fav += f"<div style='display:flex;align-items:center;gap:22px;padding:14px 0'><span style='font-size:44px;font-weight:900;color:{O};width:40px'>{i+1}</span><div style='flex:1'><div class='{'fr' if r['nat']==HOME else ''}' style='font-size:34px;font-weight:800'>{e(r['name'])}</div><div style='font-size:24px;color:{GREY}'>{e(r['why'])}</div></div>{nat(r['nat'])}</div>"
@@ -281,39 +314,41 @@ def pre_race(meta: dict, headline: str, lines: list[tuple[str, str]], favs: list
 <div style='position:absolute;top:400px;left:72px;right:72px'>{''.join(line(k, v) for k, v in lines)}
 <div style='margin-top:36px'>{kicker('NOS FAVORIS' if meta['cat']!='SW' else 'NOS FAVORITES')}{fav}</div>
 <div style='font-size:22px;color:{MUTED};margin-top:6px'>Calcul : résultats et tir sur les dernières courses</div></div>"""
-    opts = "".join(f"<div style='background:{FR_BG if r['nat']==HOME else '#1f2733'};border-radius:16px;padding:26px 30px;font-size:40px;font-weight:800'>{e(r['name'])}</div>" for r in favs[:2])
-    opts += "<div style='background:#1f2733;border-radius:16px;padding:26px 30px;font-size:40px;font-weight:800'>Quelqu’un d’autre</div>"
+    opts = "".join(f"<div style='background:{FR_BG if r['nat']==HOME else 'var(--chip)'};border-radius:16px;padding:26px 30px;font-size:40px;font-weight:800'>{e(r['name'])}</div>" for r in favs[:2])
+    opts += "<div style='background:var(--chip);border-radius:16px;padding:26px 30px;font-size:40px;font-weight:800'>Quelqu’un d’autre</div>"
     story = f"""<div style='position:absolute;top:260px;left:72px;right:72px'>{kicker('DANS 2 HEURES')}
 <div style='font-size:100px;font-weight:900;line-height:1;margin-top:20px'>{e(meta['label'])}</div>
 <div style='font-size:44px;color:{GREY};font-weight:700;margin-top:20px'>{hhmm} · {e(meta['site'])}</div></div>
 <div style='position:absolute;top:820px;left:72px;right:72px;background:{ROW};border-radius:24px;padding:44px'>
 <div style='font-size:30px;color:{GREY};font-weight:800;letter-spacing:.08em'>QUI GAGNE ?</div>
 <div style='display:flex;flex-direction:column;gap:18px;margin-top:26px'>{opts}</div></div>
-<div style='position:absolute;top:1500px;left:72px;right:72px;font-size:38px;font-weight:700;color:#c5ccd6;line-height:1.4'>{e(key_point)}</div>"""
+<div style='position:absolute;top:1500px;left:72px;right:72px;font-size:38px;font-weight:700;color:var(--soft);line-height:1.4'>{e(key_point)}</div>"""
     return page(feed, meta["site"], meta["label"]), page(story, meta["site"], "Story avant course", height=1920)
 
 
 # ================================================================ MERCREDI
 
 def programme(site: str, days: list[tuple[str, list[tuple[str, str]]]], n_races: int, n_days: int, enjeux: list[tuple[str, str, str]]) -> list[str]:
+    set_cat(None)
     rows = ""
     for day, races in days:
         items = "".join(f"<div style='display:flex;gap:26px;font-size:{32 if len(days)<=4 else 28}px;font-weight:600;padding:5px 0'><span class='num' style='width:110px;color:{O};font-weight:800'>{e(h)}</span><span>{e(r)}</span></div>" for h, r in races)
-        rows += f"<div style='padding:{20 if len(days)<=4 else 12}px 0;border-top:1px solid #222b37'><div style='font-size:24px;color:{GREY};font-weight:800;letter-spacing:.1em;margin-bottom:6px'>{e(day.upper())}</div>{items}</div>"
+        rows += f"<div style='padding:{20 if len(days)<=4 else 12}px 0;border-top:1px solid var(--line)'><div style='font-size:24px;color:{GREY};font-weight:800;letter-spacing:.1em;margin-bottom:6px'>{e(day.upper())}</div>{items}</div>"
     site_nb = a_site(site)
     total = 2 if enjeux else 1
     s1 = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker('LE PROGRAMME')}<div class='h' style='font-size:70px'>{n_races} courses, {n_days} jours {site_nb}</div></div>
 <div style='position:absolute;top:500px;left:72px;right:72px'>{rows}<div style='font-size:24px;color:{MUTED};margin-top:16px'>Heures françaises</div></div>"""
     slides = [page(s1, site, "Étape de Coupe du monde", 1, total)]
     if enjeux:
-        cards = "".join(f"<div style='background:{ROW};border-radius:18px;padding:30px 32px;margin-bottom:18px'><div style='font-size:24px;color:{GREY};font-weight:800;letter-spacing:.08em'>{e(k)}</div><div style='font-size:46px;font-weight:900;margin-top:6px'>{e(v)}</div><div style='font-size:28px;color:#c5ccd6;margin-top:6px'>{e(sub)}</div></div>" for k, v, sub in enjeux)
+        cards = "".join(f"<div style='background:{ROW};border-radius:18px;padding:30px 32px;margin-bottom:18px'><div style='font-size:24px;color:{GREY};font-weight:800;letter-spacing:.08em'>{e(k)}</div><div style='font-size:46px;font-weight:900;margin-top:6px'>{e(v)}</div><div style='font-size:28px;color:var(--soft);margin-top:6px'>{e(sub)}</div></div>" for k, v, sub in enjeux)
         s2 = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker('LES ENJEUX')}{title("Ce qu'il faut suivre ce week-end", 64)}</div>
 <div style='position:absolute;top:420px;left:72px;right:72px'>{cards}</div>"""
         slides.append(page(s2, site, "Étape de Coupe du monde", 2, total))
     return slides
 
 
-def standings_slide(label: str, rows: list[dict], headline: str, h2: str, idx: int, total: int, note: str = "", young: bool = False) -> str:
+def standings_slide(label: str, rows: list[dict], headline: str, h2: str, idx: int, total: int, note: str = "", young: bool = False, cat: str | None = None) -> str:
+    set_cat(cat)
     out = ""
     lead = rows[0]["score"] if rows else 0
     for r in rows[:10]:
@@ -321,7 +356,7 @@ def standings_slide(label: str, rows: list[dict], headline: str, h2: str, idx: i
         gap = "" if r is rows[0] else ("=" if lead == r["score"] else f"-{lead - r['score']}")
         rank = r.get("young_rank", r["rank"])
         extra = f"<span style='font-size:22px;color:{MUTED};margin-left:10px'>({r['rank']}e)</span>" if young else ""
-        out += f"""<div style='display:flex;align-items:center;padding:0 24px;height:66px;border-radius:12px;margin-bottom:7px;background:{FR_BG if fr else ('#2a1a12' if rank==1 else ROW)}'>
+        out += f"""<div style='display:flex;align-items:center;padding:0 24px;height:66px;border-radius:12px;margin-bottom:7px;background:{FR_BG if fr else ('var(--lead-bg)' if rank==1 else ROW)}'>
 <div style='width:66px;font-size:32px;font-weight:900;color:{O if rank<=3 else GREY}'>{rank}</div>
 <div class='{'fr' if fr else ''}' style='flex:1;font-size:31px;font-weight:700;white-space:nowrap'>{e(r['name'])}{extra}</div>
 {nat(r['nat'])}<div class='num' style='width:110px;text-align:right;font-size:30px;font-weight:800'>{r['score']}</div>
@@ -336,25 +371,27 @@ def standings_slide(label: str, rows: list[dict], headline: str, h2: str, idx: i
 # ================================================================ LUNDI
 
 def bilan(site: str, headline: str, figures: list[tuple[str, str]], mv: dict[str, dict]) -> list[str]:
+    set_cat(None)
     total = 1 + len(mv)
-    grid = "".join(f"<div style='background:{ROW};border-radius:18px;padding:30px'><div style='font-size:84px;font-weight:900;color:{O}'>{e(v)}</div><div style='font-size:28px;color:#c5ccd6;font-weight:600'>{e(k)}</div></div>" for v, k in figures[:4])
+    grid = "".join(f"<div style='background:{ROW};border-radius:18px;padding:30px'><div style='font-size:84px;font-weight:900;color:{O}'>{e(v)}</div><div style='font-size:28px;color:var(--soft);font-weight:600'>{e(k)}</div></div>" for v, k in figures[:4])
     s1 = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker('LE BILAN')}{title(headline, 80 if len(headline)<34 else 64)}</div>
 <div style='position:absolute;top:540px;left:72px;right:72px;display:grid;grid-template-columns:1fr 1fr;gap:20px'>{grid}</div>"""
     slides = [page(s1, site, "Bilan de l'étape", 1, total)]
     for i, (cat, m) in enumerate(mv.items()):
+        set_cat(cat)
         def row(d, up):
             fr = d["nat"] == HOME
-            arrow = f"<span style='color:{'#3ecf8e' if up else O};font-weight:900'>{'▲' if up else '▼'} {abs(d['delta'])}</span>"
+            arrow = f"<span style='color:{'var(--up)' if up else O};font-weight:900'>{'▲' if up else '▼'} {abs(d['delta'])}</span>"
             o = ordinal_f if cat == "SW" else ordinal
             return f"""<div style='display:flex;align-items:center;padding:0 26px;height:94px;border-radius:14px;margin-bottom:10px;background:{FR_BG if fr else ROW}'>
 <div style='width:120px;font-size:36px'>{arrow}</div><div class='{'fr' if fr else ''}' style='flex:1;font-size:33px;font-weight:700'>{e(d['name'])}</div>{nat(d['nat'])}
-<div style='width:210px;text-align:right;font-size:28px;color:{GREY};font-weight:700'>{o(d['before'])} → <span style='color:#f2f4f7'>{o(d['after'])}</span></div></div>"""
+<div style='width:210px;text-align:right;font-size:28px;color:{GREY};font-weight:700'>{o(d['before'])} → <span style='color:var(--ink)'>{o(d['after'])}</span></div></div>"""
         ups = "".join(row(d, True) for d in m["up"])
         downs = "".join(row(d, False) for d in m["down"])
         s = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker('QUI MONTE, QUI DESCEND')}<div class='h' style='font-size:58px'>Le général {config.CATEGORIES[cat]} après <span style='white-space:nowrap'>{e(apres_site(site))}</span></div></div>
 <div style='position:absolute;top:410px;left:72px;right:72px'>
-<div style='font-size:24px;color:#3ecf8e;font-weight:800;letter-spacing:.08em;margin-bottom:12px'>EN HAUSSE</div>{ups or "<div style='color:#6b7686;font-size:28px'>Aucune progression dans le top 30</div>"}
-<div style='font-size:24px;color:{O};font-weight:800;letter-spacing:.08em;margin:26px 0 12px'>EN BAISSE</div>{downs or "<div style='color:#6b7686;font-size:28px'>Aucune baisse dans le top 30</div>"}</div>"""
+<div style='font-size:24px;color:var(--up);font-weight:800;letter-spacing:.08em;margin-bottom:12px'>EN HAUSSE</div>{ups or "<div style='color:var(--muted);font-size:28px'>Aucune progression dans le top 30</div>"}
+<div style='font-size:24px;color:{O};font-weight:800;letter-spacing:.08em;margin:26px 0 12px'>EN BAISSE</div>{downs or "<div style='color:var(--muted);font-size:28px'>Aucune baisse dans le top 30</div>"}</div>"""
         slides.append(page(s, "Classement général", config.CATEGORIES[cat], i + 2, total))
     return slides
 
@@ -365,6 +402,7 @@ DISC_SHORT = {"SP": "SP", "PU": "PO", "MS": "MS", "IN": "IN", "SI": "IC"}
 
 
 def bleus(cat: str, site: str, athletes: list[dict]) -> list[str]:
+    set_cat(cat)
     fem = cat == "SW"
     o = ordinal_f if fem else ordinal
     label = "🇫🇷 LES BLEUES · FEMMES" if fem else "🇫🇷 LES BLEUS · HOMMES"
@@ -375,25 +413,25 @@ def bleus(cat: str, site: str, athletes: list[dict]) -> list[str]:
         wk = " · ".join(f"{DISC_SHORT.get(d, d)} {o(r) if r else 'Ab.'}" for d, r in a["week_by_disc"]) or "-"
         gen = f"{o(a['gen_rank'])} ({a['score']} pts)" if a.get("gen_rank") else "-"
         tir = f"{a['week']['tir']} %" if a["week"]["tir"] is not None else "-"
-        rows += f"<div style='display:flex;align-items:center;padding:20px 0;border-top:1px solid #222b37;font-size:28px'><span class='fr' style='flex:1;font-weight:800'>{e(a['name'])}</span><span style='width:330px;color:#c5ccd6;font-weight:600;font-size:24px'>{e(wk)}</span><span class='num' style='width:200px;text-align:right;font-weight:700'>{e(gen)}</span><span class='num' style='width:100px;text-align:right;font-weight:800;color:{O}'>{e(tir)}</span></div>"
-    s1 = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker(label, '#7da2ff')}{title('Le week-end des Françaises' if fem else 'Le week-end des Français', 70)}</div>
+        rows += f"<div style='display:flex;align-items:center;padding:20px 0;border-top:1px solid var(--line);font-size:28px'><span class='fr' style='flex:1;font-weight:800'>{e(a['name'])}</span><span style='width:330px;color:var(--soft);font-weight:600;font-size:24px'>{e(wk)}</span><span class='num' style='width:200px;text-align:right;font-weight:700'>{e(gen)}</span><span class='num' style='width:100px;text-align:right;font-weight:800;color:{O}'>{e(tir)}</span></div>"
+    s1 = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker(label, 'var(--fr)')}{title('Le week-end des Françaises' if fem else 'Le week-end des Français', 70)}</div>
 <div style='position:absolute;top:400px;left:72px;right:72px'>
 <div style='display:flex;font-size:20px;color:{MUTED};font-weight:800;letter-spacing:.08em;padding-bottom:12px'><span style='flex:1'>ATHLÈTE</span><span style='width:330px'>COURSES</span><span style='width:200px;text-align:right'>GÉNÉRAL</span><span style='width:100px;text-align:right'>TIR</span></div>{rows}
 <div style='font-size:22px;color:{MUTED};margin-top:14px'>SP sprint · PO poursuite · MS mass start · IN individuel · Tir : réussite du week-end</div></div>"""
     slides = [page(s1, "Les Bleus" if not fem else "Les Bleues", f"Après {apres_site(site)}", 1, total)]
     for i, a in enumerate(athletes[:n]):
         def stat(k, wk, ss):
-            return f"<div style='display:flex;align-items:center;padding:22px 0;border-top:1px solid #222b37'><span style='flex:1;font-size:30px;color:{GREY};font-weight:700'>{e(k)}</span><span class='num' style='width:220px;text-align:right;font-size:38px;font-weight:900'>{e(wk)}</span><span class='num' style='width:220px;text-align:right;font-size:32px;font-weight:700;color:#c5ccd6'>{e(ss)}</span></div>"
+            return f"<div style='display:flex;align-items:center;padding:22px 0;border-top:1px solid var(--line)'><span style='flex:1;font-size:30px;color:{GREY};font-weight:700'>{e(k)}</span><span class='num' style='width:220px;text-align:right;font-size:38px;font-weight:900'>{e(wk)}</span><span class='num' style='width:220px;text-align:right;font-size:32px;font-weight:700;color:var(--soft)'>{e(ss)}</span></div>"
         w, s = a["week"], a["season"]
         pct = lambda v: f"{v} %" if v is not None else "-"
         form = ""
         for p in a["form"]:
             h = 40 + max(0, 160 - 4 * (p or 40)) if p else 30
-            form += f"<div style='flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:10px'><div style='width:64px;height:{h}px;background:{O if p and p<=3 else '#2b3442'};border-radius:10px 10px 0 0'></div><span style='font-size:24px;font-weight:800'>{o(p) if p else 'Ab.'}</span></div>"
+            form += f"<div style='flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:10px'><div style='width:64px;height:{h}px;background:{O if p and p<=3 else 'var(--bar)'};border-radius:10px 10px 0 0'></div><span style='font-size:24px;font-weight:800'>{o(p) if p else 'Ab.'}</span></div>"
         gr = o(a["gen_rank"]) if a.get("gen_rank") else "-"
         num, suf = (gr[:-2], gr[-2:]) if gr.endswith(("er", "re")) else (gr[:-1], gr[-1:])
         body = f"""<div style='position:absolute;top:190px;left:72px;right:72px;display:flex;justify-content:space-between;align-items:flex-end'>
-<div>{kicker(f"{label.split(' ·')[0]} · {i+1}/{n}", '#7da2ff')}<div style='font-size:34px;color:{GREY};font-weight:600;margin-top:16px'>{e(a['first'])}</div><div style='font-size:{92 if len(a['last'])<11 else 70}px;font-weight:900;line-height:1;text-transform:uppercase'>{e(a['last'])}</div></div>
+<div>{kicker(f"{label.split(' ·')[0]} · {i+1}/{n}", 'var(--fr)')}<div style='font-size:34px;color:{GREY};font-weight:600;margin-top:16px'>{e(a['first'])}</div><div style='font-size:{92 if len(a['last'])<11 else 70}px;font-weight:900;line-height:1;text-transform:uppercase'>{e(a['last'])}</div></div>
 <div style='text-align:right'><div style='font-size:24px;color:{GREY};font-weight:800;letter-spacing:.08em'>GÉNÉRAL</div><div style='font-size:120px;font-weight:900;color:{O};line-height:.9'>{num}<span style='font-size:60px'>{suf}</span></div></div></div>
 <div style='position:absolute;top:470px;left:72px;right:72px'>
 <div style='display:flex;font-size:20px;color:{MUTED};font-weight:800;letter-spacing:.08em;padding-bottom:10px'><span style='flex:1'></span><span style='width:220px;text-align:right'>WEEK-END</span><span style='width:220px;text-align:right'>SAISON</span></div>
