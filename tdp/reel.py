@@ -25,7 +25,7 @@ from .templates import HOME, flag, page, set_cat, a_site_txt, e
 
 FPS = 30
 HOOK, INTRO, STAGE, FINISH, OUTRO = 3.0, 2.4, 4.8, 4.4, 1.8
-MAX_FOCUS = 10
+TOP_ROWS = 10
 
 
 # ---------------------------------------------------------------- donnees
@@ -88,10 +88,6 @@ def build(meta: dict, rows: list[dict]) -> dict:
     if not ath:
         return {}
     final = sorted([a for a in ath if a["rank"]], key=lambda a: a["rank"])
-    focus = final[:6]
-    focus += [a for a in final if a["nat"] == HOME and a not in focus][: MAX_FOCUS - len(focus)]
-    focus += [a for a in final if a not in focus][: max(0, 10 - len(focus))]
-    focus.sort(key=lambda a: a["rank"])
     standings, prev, positions = [], {}, []
     for k in range(n):
         order = sorted(ath, key=lambda a: a["cum"][k])
@@ -107,14 +103,24 @@ def build(meta: dict, rows: list[dict]) -> dict:
         standings.append(top)
         positions.append(pos)
         prev = pos
-    arr_rank, at_pos, slots = [], [], []
+    # Liste affichee a chaque tir = classement au moment du tir (temps de course a l'arrivee au pas de tir) :
+    # les 10 premiers, plus le meilleur Francais s'il n'y est pas.
+    vis, at_pos = [], []
     for k in range(n):
-        order = sorted(focus, key=lambda a: a["arrive"][k])
-        arr_rank.append({a["ibu"]: i for i, a in enumerate(order)})
-        # Classement au moment du tir (temps de course a l'arrivee au pas de tir), parmi tous les athletes
-        allpos = {a["ibu"]: i + 1 for i, a in enumerate(sorted(ath, key=lambda a: a["net"][k]))}
-        at_pos.append(allpos)
-        slots.append({a["ibu"]: i for i, a in enumerate(sorted(focus, key=lambda a: allpos[a["ibu"]]))})
+        order = sorted(ath, key=lambda a: a["net"][k])
+        at_pos.append({a["ibu"]: i + 1 for i, a in enumerate(order)})
+        v = order[:TOP_ROWS]
+        fr = next((a for a in order if a["nat"] == HOME), None)
+        if fr and fr not in v:
+            v.append(fr)
+        vis.append(v)
+    focus = []
+    for v in vis:
+        focus += [a for a in v if a not in focus]
+    slots, arr_rank = [], []
+    for k in range(n):
+        slots.append({a["ibu"]: i for i, a in enumerate(vis[k])})
+        arr_rank.append({a["ibu"]: i for i, a in enumerate(sorted(vis[k], key=lambda a: a["arrive"][k]))})
     win = final[0]
     podium = [{"rank": a["rank"], "first": a["first"], "last": a["last"], "nat": a["nat"],
                "time": str(a["total"]).replace(".", ",") if a["rank"] == 1 else _gap(parse_time(a["total"]) - parse_time(win["total"])),
@@ -125,8 +131,9 @@ def build(meta: dict, rows: list[dict]) -> dict:
         "hooks": hooks, "hook": "vainqueur",  # choix de Quentin (27/11) ; les deux autres restent disponibles
         "label": meta["label"], "site": meta["site"], "stages": [s.upper() for s in stages], "fem": fem,
         "focus": [{"last": a["last"], "nat": a["nat"], "flag": flag(a["nat"]), "fr": a["nat"] == HOME, "misses": a["misses"],
-                   "arr": [arr_rank[k][a["ibu"]] for k in range(n)], "rank": o(a["rank"]),
-                   "pos": [at_pos[k][a["ibu"]] for k in range(n)], "slot": [slots[k][a["ibu"]] for k in range(n)]} for a in focus],
+                   "arr": [arr_rank[k].get(a["ibu"]) for k in range(n)], "nvis": [len(v) for v in vis],
+                   "pos": [at_pos[k][a["ibu"]] for k in range(n)], "slot": [slots[k].get(a["ibu"]) for k in range(n)]} for a in focus],
+        "nrows": max(len(v) for v in vis),
         "standings": [[{**s, "flag": flag(s["nat"]), "fr": s["nat"] == HOME} for s in st] for st in standings],
         "podium": [{**p, "flag": flag(p["nat"]), "fr": p["nat"] == HOME} for p in podium],
         "best_fr": ({"name": f"{best_fr['first']} {best_fr['last']}", "rank": o(best_fr["rank"])}
@@ -229,10 +236,10 @@ tl.innerHTML = "<div class='bar'></div><div class='fill' id='fill'></div>" + lab
   const x = 12 + W * i / (labels.length - 1);
   return `<div class='st' style='left:${{x}}px'>${{l}}</div><div class='pt' id='pt${{i}}' style='left:${{x}}px'></div>`; }}).join('');
 const rows = document.getElementById('rows');
-rows.innerHTML = D.focus.map((a, i) => `<div class='row' id='r${{i}}' style='top:${{600 + a.slot[0] * 56}}px'>
+rows.innerHTML = D.focus.map((a, i) => `<div class='row' id='r${{i}}' style='top:600px;opacity:0'>
   <span class='ps' id='p${{i}}' style='width:58px;font-size:24px;color:var(--grey);font-weight:900'></span><span style='font-size:30px'>${{a.flag}}</span><span class='nm' style='color:${{a.fr ? "var(--fr)" : "var(--ink)"}}'>${{a.last}}</span>
   ${{[0,1,2,3,4].map(j => `<span class='tg' id='t${{i}}_${{j}}'></span>`).join('')}}<span class='cnt' id='c${{i}}'></span></div>`).join('');
-const SD_TOP = 600 + D.focus.length * 56 + 26;
+const SD_TOP = 600 + D.nrows * 56 + 26;
 function stageStart(k) {{ return T.intro + k * T.stage; }}
 function drawHook(t) {{
   const el = document.getElementById('hook'), H = D.hooks[D.hook];
@@ -288,31 +295,39 @@ function draw(t0) {{
   const k = Math.min(N - 1, Math.max(0, Math.floor((t - T.intro) / T.stage)));
   const s0 = stageStart(k), inStages = t >= T.intro && t < fin0;
   const showRows = t >= T.intro - 0.6 && t < fin0 + 0.3;
+  const kk = t < T.intro ? 0 : k;
+  const mv = (t < T.intro || kk === 0) ? 1 : ease((t - s0 + 0.1) / 0.6);
   D.focus.forEach((a, i) => {{
     const r = document.getElementById('r' + i);
-    const appear = ease((t - (T.intro - 0.8) - i * 0.04) / 0.5);
+    const cur = a.slot[kk], prv = kk > 0 ? a.slot[kk - 1] : cur;
+    const appear = ease((t - (T.intro - 0.8) - (cur ?? 0) * 0.04) / 0.5);
     const out = t >= fin0 ? 1 - ease((t - fin0) / 0.4) : 1;
-    r.style.opacity = showRows ? Math.min(appear, out) : 0;
-    r.style.transform = `translateX(${{(1 - appear) * -40}}px)`;
-    // place dans la liste = classement au moment du tir k ; glissement au debut de chaque tir
-    const from = a.slot[Math.max(0, k - 1)], to = a.slot[k];
-    const mv = t < T.intro ? 0 : ease((t - s0 + 0.1) / 0.6);
-    r.style.top = (600 + 56 * (from + (to - from) * (k === 0 ? 1 : mv))) + 'px';
-    document.getElementById('p' + i).textContent = (t >= T.intro - 0.6 ? (k === 0 || mv >= 0.5 ? a.pos[k] : a.pos[k - 1]) : a.pos[0]) + (D.fem ? 'e' : 'e');
-    const nf = D.focus.length;
-    const ts = s0 + 0.9 + 2.1 * (a.arr[k] / Math.max(1, nf - 1));
-    let shooting = inStages && t >= ts && t < ts + 1.0;
+    // visibilite : entre / sort de la liste au debut de chaque tir
+    let vis = 0;
+    if (cur != null && prv != null) vis = 1;
+    else if (cur != null) vis = mv;            // entre dans le top 10
+    else if (prv != null) vis = 1 - mv;        // sort du top 10
+    r.style.opacity = showRows ? Math.min(appear, out, vis) : 0;
+    r.style.transform = `translateX(${{(1 - Math.min(appear, vis)) * -40}}px)`;
+    const y0 = prv ?? cur ?? 0, y1 = cur ?? prv ?? 0;
+    r.style.top = (600 + 56 * (y0 + (y1 - y0) * mv)) + 'px';
+    document.getElementById('p' + i).textContent = (mv >= 0.5 || kk === 0 ? a.pos[kk] : a.pos[kk - 1]) + 'e';
+    const nf = a.nvis[kk];
+    const on = cur != null;
+    const ts = on ? s0 + 0.9 + 2.1 * (a.arr[kk] / Math.max(1, nf - 1)) : 1e9;
+    const shooting = inStages && on && t >= ts && t < ts + 1.0;
     r.style.background = shooting ? 'var(--lead-bg)' : (a.fr ? 'var(--fr-bg)' : 'var(--row)');
-    const miss = a.misses[k];
+    const miss = a.misses[kk];
     for (let j = 0; j < 5; j++) {{
       const el = document.getElementById(`t${{i}}_${{j}}`);
-      const done = inStages && t >= ts + 0.18 * j;
+      const done = inStages && on && t >= ts + 0.18 * j;
       el.className = 'tg' + (done ? (j >= 5 - miss ? ' miss' : ' hit') : '');
     }}
     let tot = 0;
-    for (let q = 0; q <= k; q++) {{ const tq = stageStart(q) + 0.9 + 2.1 * (a.arr[q] / Math.max(1, nf - 1)) + 0.9; if (t >= tq) tot += a.misses[q]; }}
+    for (let q = 0; q < kk; q++) tot += a.misses[q];
+    if (inStages && on && t >= ts + 0.9) tot += a.misses[kk];
     const c = document.getElementById('c' + i);
-    c.textContent = t >= T.intro ? (tot ? tot + ' F' : '0 F') : '';
+    c.textContent = t >= T.intro ? tot + ' F' : '';
     c.style.color = tot ? 'var(--flash)' : 'var(--muted)';
   }});
   // bandeau TIR k
