@@ -102,6 +102,20 @@ def test_penalty_counts():
     assert (a["tours"], a["minutes"], a["fautes"]) == (2, 1.0, 3)
 
 
+
+def test_duel():
+    gen = [{"rank": 1, "ibu": "A", "nat": "NOR", "score": 300, "name": "A A", "first": "A", "last": "A"},
+           {"rank": 2, "ibu": "B", "nat": "SWE", "score": 250, "name": "B B", "first": "B", "last": "B"},
+           {"rank": 3, "ibu": "C", "nat": "FRA", "score": 200, "name": "C C", "first": "C", "last": "C"}]
+    r = lambda ibu, rank: {"ibu": ibu, "rank": rank, "shots": 20, "misses_total": 2, "ski": (None, rank)}
+    races = [({}, [r("A", 1), r("C", 2)]), ({}, [r("C", 1), r("A", 4)]), ({}, [r("A", 2)])]
+    d = stats.duel(gen, races)
+    assert d["b"]["ibu"] == "C" and d["rule"] == "fr" and d["gap"] == 100
+    assert d["h2h"] == [1, 1] and d["a"]["wins"] == 1 and d["a"]["podiums"] == 2
+    gen[0]["nat"] = "FRA"
+    d = stats.duel(gen, races)
+    assert d["b"]["ibu"] == "B" and d["rule"] == "2e"
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):

@@ -678,3 +678,50 @@ def _penalty_slides(site: str, pen: dict, done: int, total: int) -> list[str]:
     s2 = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker('LE COMPTEUR DE TOURS DE PÉNALITÉ')}{title('Les plus pénalisés', 66)}</div>
 <div style='position:absolute;top:360px;left:72px;right:72px'>{head}{rows2}{note}</div>"""
     return [page(s1, site, "Bilan de l'étape", done + 1, total), page(s2, site, "Bilan de l'étape", done + 2, total)]
+
+
+def duel(cat: str, site: str, d: dict, idx: int, total: int) -> str:
+    """Duel du mardi : une slide par categorie, valeur la meilleure en couleur flash."""
+    set_cat(cat)
+    fem = cat == "SW"
+    o = ordinal_f if fem else ordinal
+    a, b = d["a"], d["b"]
+
+    def head(x, align):
+        size = 64 if len(x["last"]) < 10 else 50
+        return (f"<div style='flex:1;text-align:{align}'>{nat(x['nat'], 54)}"
+                f"<div style='font-size:30px;color:{GREY};font-weight:600;margin-top:14px'>{e(x['first'])}</div>"
+                f"<div class='{'fr' if x['nat'] == HOME else ''}' style='font-size:{size}px;font-weight:900;line-height:1;text-transform:uppercase'>{e(x['last'])}</div></div>")
+
+    def row(label, va, vb, fa, fb, better):
+        ca = cb = "var(--ink)"
+        if va is not None and vb is not None and va != vb:
+            win_a = (va > vb) if better == "high" else (va < vb)
+            ca, cb = (O, "var(--soft)") if win_a else ("var(--soft)", O)
+        sa = fa(va) if va is not None else "-"
+        sb = fb(vb) if vb is not None else "-"
+        return (f"<div style='display:flex;align-items:center;padding:13px 0;border-top:1px solid var(--line)'>"
+                f"<span class='num' style='width:260px;font-size:42px;font-weight:900;color:{ca}'>{e(sa)}</span>"
+                f"<span style='flex:1;text-align:center;font-size:24px;color:{GREY};font-weight:800;letter-spacing:.08em'>{e(label.upper())}</span>"
+                f"<span class='num' style='width:260px;text-align:right;font-size:42px;font-weight:900;color:{cb}'>{e(sb)}</span></div>")
+
+    pts = lambda v: f"{v} pts"
+    pct = lambda v: f"{v} %"
+    rows = (row("Points", a["score"], b["score"], pts, pts, "high")
+            + row("Victoires", a["wins"], b["wins"], str, str, "high")
+            + row("Podiums", a["podiums"], b["podiums"], str, str, "high")
+            + row("Top 10", a["top10"], b["top10"], str, str, "high")
+            + row("Tir", a["tir"], b["tir"], pct, pct, "high")
+            + row("Rang ski moyen", a["ski"], b["ski"], o, o, "low"))
+    who = "La leader" if fem else "Le leader"
+    sub = f"{who} contre {'la meilleure Française' if fem else 'le meilleur Français'}" if d["rule"] == "fr" else "1er contre 2e du général" if not fem else "1re contre 2e du général"
+    h0, h1 = d["h2h"]
+    body = f"""<div style='position:absolute;top:180px;left:72px;right:72px'>{kicker(('LE DUEL · FEMMES' if fem else 'LE DUEL · HOMMES'))}
+<div style='font-size:30px;color:var(--soft);font-weight:700;margin-top:10px'>{e(sub)}</div></div>
+<div style='position:absolute;top:320px;left:72px;right:72px;display:flex;align-items:flex-end;gap:20px'>{head(a, 'left')}
+<div style='font-size:52px;font-weight:900;color:{O};padding-bottom:6px'>VS</div>{head(b, 'right')}</div>
+<div style='position:absolute;top:560px;left:72px;right:72px'>{rows}</div>
+<div style='position:absolute;top:1100px;left:72px;right:72px;display:flex;gap:20px'>
+<div style='flex:1;background:var(--row);border-radius:24px;padding:22px 28px'><div style='font-size:22px;color:{GREY};font-weight:800;letter-spacing:.08em'>ÉCART AU GÉNÉRAL</div><div class='num' style='font-size:44px;font-weight:900;color:{O}'>{d['gap']} pts</div></div>
+<div style='flex:1;background:var(--row);border-radius:24px;padding:22px 28px'><div style='font-size:22px;color:{GREY};font-weight:800;letter-spacing:.08em'>FACE-À-FACE</div><div class='num' style='font-size:44px;font-weight:900'>{h0} – {h1}</div></div></div>"""
+    return page(body, "Le duel", f"Après {apres_site(site)}", idx, total)

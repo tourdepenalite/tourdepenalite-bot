@@ -9,7 +9,7 @@ for t in 2026-11-29T11:05 2026-11-29T14:30 2026-12-16T09:05 2026-12-16T15:05 202
   echo "=== $t"; python -m tdp.tick --now "$t"
 done
 python tests/make_fixtures.py tests/fixtures --after
-for t in 2026-12-21T09:05 2026-12-22T09:05; do
+for t in 2026-12-21T09:05 2026-12-22T09:05 2026-12-22T13:05; do
   echo "=== $t"; python -m tdp.tick --now "$t"
 done
 python - <<'PY'
