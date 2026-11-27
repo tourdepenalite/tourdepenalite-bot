@@ -65,6 +65,24 @@ def test_weather_from_ibu():
     assert tick.weather({"race_id": "X", "site_key": None, "start": None}, C()) == "-4 °C · couvert · vent 8 km/h · neige dure"
 
 
+def test_upcoming_ignores_training_days():
+    # Etape A : publiee a partir du 22/11 (entrainements), 1re course le 26/11. Etape B : 1er/12, 1re course le 4/12.
+    class C:
+        def current_season(self): return "2627"
+        def events(self, season, level): return [
+            {"EventId": "A", "StartDate": "2026-11-22T00:00:00Z", "EndDate": "2026-11-29T00:00:00Z"},
+            {"EventId": "B", "StartDate": "2026-12-01T00:00:00Z", "EndDate": "2026-12-07T00:00:00Z"}]
+        def competitions(self, eid): return {
+            "A": [{"RaceId": "A1", "DisciplineId": "IN", "catId": "SM", "StartTime": "2026-11-26T15:15:00Z"},
+                  {"RaceId": "A2", "DisciplineId": "MS", "catId": "SM", "StartTime": "2026-11-29T13:00:00Z"}],
+            "B": [{"RaceId": "B1", "DisciplineId": "SP", "catId": "SM", "StartTime": "2026-12-04T13:00:00Z"}]}[eid]
+    at = lambda s: dt.datetime.fromisoformat(s).replace(tzinfo=config.TZ)
+    assert tick.Season(C(), at("2026-11-25T09:05")).upcoming(days=6)["EventId"] == "A"
+    assert tick.Season(C(), at("2026-11-27T13:00")).running()["EventId"] == "A"
+    assert tick.Season(C(), at("2026-12-02T09:05")).upcoming(days=6)["EventId"] == "B"
+    assert tick.Season(C(), at("2026-11-30T09:05")).just_ended()["EventId"] == "A"
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):
