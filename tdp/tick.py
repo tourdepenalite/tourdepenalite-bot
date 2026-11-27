@@ -382,6 +382,45 @@ def p_pre_race(st, S: Season, m: dict, ev):
     produce(st, f"pre:{m['race_id']}", "avant_course", [feed], cap["caption"], story, expires=m["start"])
 
 
+def p_grille(st, S: Season, m: dict):
+    """Story 1 h avant : grille de depart (ou compositions pour un relais)."""
+    payload = S.c.results(m["race_id"])
+    if m["relay"]:
+        teams = stats.relay_lineups(payload)
+        if not teams:
+            raise NotReady("compositions des relais pas encore publiees")
+        fra = [t for t in teams if t["nat"] == config.HOME_NAT]
+        others = [t for t in teams if t["nat"] != config.HOME_NAT][: 3 - len(fra)]
+        story = templates.story_relais(m, fra + others)
+    else:
+        grid = stats.start_grid(payload)
+        if len(grid) < 3:
+            raise NotReady("liste de depart pas encore publiee")
+        fem = m["cat"] == "SW"
+        o = stats.ordinal_f if fem else stats.ordinal
+        gen = stats.standings(S.c, S.id, m["cat"])
+        if not gen or gen[0]["score"] == 0:
+            gen = stats.standings(S.c, S.previous_id(), m["cat"])
+        rank = {g["ibu"]: g["rank"] for g in gen}
+        births = stats.birth_map(S.c, [m["race_id"]])
+        first_race = min([mm["start"] for mm, _ in S.finished_races()], default=m["start"]).date()
+        young = [x for x in grid if x["ibu"] in births and
+                 first_race.year - births[x["ibu"]].year - ((first_race.month, first_race.day) < (births[x["ibu"]].month, births[x["ibu"]].day)) < 23]
+        best_young = min(young, key=lambda x: rank.get(x["ibu"], 999), default=None)
+        keep = []
+        for x in grid:
+            tags = []
+            if rank.get(x["ibu"], 99) <= 3:
+                tags.append(f"{o(rank[x['ibu']])} général")
+            if best_young and x["ibu"] == best_young["ibu"]:
+                tags.append("U23")
+            if tags or x["nat"] == config.HOME_NAT:
+                keep.append({**x, "tags": tags})
+        mode = {"PU": "retard", "MS": "ordre"}.get(m["disc"], "heure")
+        story = templates.story_grille(m, keep, mode)
+    produce(st, f"grid:{m['race_id']}", "grille", [], "", story, expires=m["start"])
+
+
 def p_depart(st, S: Season, m: dict):
     """Story « C'est parti ! » au depart : publiee sans validation (aucun chiffre, et un clic
     tardif la rendrait inutile)."""
@@ -565,6 +604,8 @@ def _run(st: dict, now: dt.datetime):
     for ev in filter(None, {id(x): x for x in (S.running(), up)}.values()):
         for m in S.comps(ev):
             delta = (m["start"] - now).total_seconds() / 60
+            if 40 <= delta <= 70:
+                todo.append((f"grid:{m['race_id']}", lambda m=m: p_grille(st, S, m)))
             if -15 <= delta <= 2 and now >= m["start"] - dt.timedelta(minutes=2):
                 todo.append((f"go:{m['race_id']}", lambda m=m: p_depart(st, S, m)))
             if not m["relay"] and 30 <= delta <= config.SCHEDULE["pre_race_minutes"]:

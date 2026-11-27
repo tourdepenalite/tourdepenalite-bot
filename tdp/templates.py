@@ -545,3 +545,58 @@ def story_bleus(meta: dict, home: list[dict]) -> str:
 <div style='position:absolute;top:1010px;left:72px;right:72px'>
 {"<div style='font-size:26px;color:" + GREY + ";font-weight:800;letter-spacing:.08em;margin-bottom:8px'>" + ('LES AUTRES BLEUES' if fem else 'LES AUTRES BLEUS') + "</div>" if len(home) > 1 else ""}{others}</div>"""
     return page(body, meta["site"], "Les Bleues" if fem else "Les Bleus", height=1920)
+
+
+def story_grille(meta: dict, rows: list[dict], mode: str) -> str:
+    """Grille de depart 1 h avant. mode : 'heure' (sprint, individuel), 'retard' (poursuite),
+    'ordre' (mass start). rows : athletes retenus, avec leurs etiquettes ('tags')."""
+    set_cat(meta.get("cat"))
+    fem = meta.get("cat") == "SW"
+    hhmm = meta["start"].strftime("%H:%M") if meta["start"] else ""
+    head = {"heure": "DÉPART", "retard": "RETARD", "ordre": "DOSSARD"}[mode]
+    lines = ""
+    for r in rows[:14]:
+        if mode == "heure":
+            val = r["start"].strftime("%H:%M:%S") if r["start"] else "-"
+        elif mode == "retard":
+            val = "En tête" if not r["gap_s"] else fmt_gap(r["gap_s"])
+        else:
+            val = str(r["bib"] or "-")
+        tags = "".join(f"<span style='font-size:20px;font-weight:800;padding:4px 10px;border-radius:8px;margin-left:10px;"
+                       f"background:{O};color:var(--on-flash)'>{e(t)}</span>" for t in r.get("tags", []))
+        fr = r["nat"] == HOME
+        lines += (f"<div style='display:flex;align-items:center;padding:14px 18px;border-radius:14px;margin-bottom:8px;"
+                  f"background:{FR_BG if fr else ROW}'>"
+                  f"<span class='num' style='width:92px;font-size:30px;font-weight:900;color:{GREY}'>{r['order'] or '-'}</span>"
+                  f"{nat(r['nat'], 34)}<span class='{'fr' if fr else ''}' style='flex:1;margin-left:14px;font-size:31px;font-weight:800;"
+                  f"white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>{e(r['name'])}{tags}</span>"
+                  f"<span class='num' style='width:170px;text-align:right;font-size:30px;font-weight:800'>{e(val)}</span></div>")
+    body = f"""<div style='position:absolute;top:250px;left:72px;right:72px'>{kicker('DANS 1 HEURE · LA GRILLE')}
+<div class='h' style='font-size:70px'>{e(meta['label'])}</div>
+<div style='font-size:36px;color:{GREY};font-weight:700;margin-top:12px'>{hhmm} · {e(meta['site'])}</div></div>
+<div style='position:absolute;top:560px;left:72px;right:72px'>
+<div style='display:flex;padding:0 18px 10px;font-size:20px;color:{MUTED};font-weight:800;letter-spacing:.08em'>
+<span style='width:92px'>ORDRE</span><span style='flex:1'>{'ATHLÈTE' if not fem else 'ATHLÈTE'}</span><span style='width:170px;text-align:right'>{head}</span></div>{lines}
+<div style='font-size:22px;color:{MUTED};margin-top:10px'>Top 3 du général, {'meilleure jeune' if fem else 'meilleur jeune'} et {'toutes les Françaises' if fem else 'tous les Français'}</div></div>"""
+    return page(body, meta["site"], "Grille de départ", height=1920)
+
+
+def story_relais(meta: dict, teams: list[dict]) -> str:
+    set_cat(meta.get("cat"))
+    hhmm = meta["start"].strftime("%H:%M") if meta["start"] else ""
+    blocks = ""
+    for t in teams[:3]:
+        fr = t["nat"] == HOME
+        legs = "".join(f"<div style='display:flex;gap:18px;font-size:30px;font-weight:700;padding:6px 0'>"
+                       f"<span style='width:40px;color:{GREY};font-weight:900'>{i + 1}</span><span>{e(n)}</span></div>"
+                       for i, n in enumerate(t["legs"]))
+        blocks += (f"<div style='background:{FR_BG if fr else ROW};border-radius:24px;padding:26px 32px;margin-bottom:18px'>"
+                   f"<div style='display:flex;align-items:center;gap:16px;margin-bottom:8px'>{nat(t['nat'], 44)}"
+                   f"<span class='{'fr' if fr else ''}' style='font-size:40px;font-weight:900'>{e(NAT_FR.get(t['nat'], t['nat']))}</span>"
+                   f"<span style='margin-left:auto;font-size:24px;color:{GREY};font-weight:800'>DOSSARD {t['bib'] or '-'}</span></div>"
+                   f"{legs or '<div style=\'font-size:26px;color:var(--muted)\'>Composition pas encore publiée</div>'}</div>")
+    body = f"""<div style='position:absolute;top:250px;left:72px;right:72px'>{kicker('DANS 1 HEURE · LES ÉQUIPES')}
+<div class='h' style='font-size:70px'>{e(meta['label'])}</div>
+<div style='font-size:36px;color:{GREY};font-weight:700;margin-top:12px'>{hhmm} · {e(meta['site'])}</div></div>
+<div style='position:absolute;top:540px;left:72px;right:72px'>{blocks}</div>"""
+    return page(body, meta["site"], "Composition des relais", height=1920)

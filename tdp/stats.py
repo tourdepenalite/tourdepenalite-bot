@@ -204,6 +204,43 @@ def individual_results(client: Client, race_id: str, payload: dict | None = None
     return rows
 
 
+def start_grid(payload: dict) -> list[dict]:
+    """Liste de depart (avant course) : ordre, dossard, heure de depart, retard au depart
+    (poursuite = ecart a la 1re heure de depart)."""
+    rows = []
+    for r in payload.get("Results", []) or []:
+        if r.get("IsTeam"):
+            continue
+        first, last = person(r)
+        try:
+            order = int(r.get("StartOrder") or r.get("Bib") or 0)
+        except ValueError:
+            order = 0
+        rows.append({"ibu": str(r.get("IBUId") or ""), "first": first, "last": last, "name": f"{first} {last}".strip(),
+                     "nat": r.get("Nat") or "", "bib": r.get("Bib"), "order": order,
+                     "start": parse_dt(r.get("StartTime"))})
+    rows.sort(key=lambda x: (x["order"] or 999, int(x["bib"]) if str(x["bib"] or "").isdigit() else 999))
+    t0 = min((x["start"] for x in rows if x["start"]), default=None)
+    for x in rows:
+        x["gap_s"] = (x["start"] - t0).total_seconds() if (x["start"] and t0) else None
+    return rows
+
+
+def relay_lineups(payload: dict) -> list[dict]:
+    """Compositions des relais : [{nat, bib, legs: [(relais, nom), ...]}] tries par dossard."""
+    teams, legs = {}, {}
+    for r in payload.get("Results", []) or []:
+        nat = r.get("Nat") or ""
+        if r.get("IsTeam"):
+            teams[nat] = {"nat": nat, "bib": _int(str(r.get("Bib") or "").split("-")[0]), "legs": []}
+        elif r.get("Leg"):
+            first, last = person(r)
+            legs.setdefault(nat, []).append((_int(r.get("Leg")) or 0, f"{first} {last}".strip()))
+    for nat, lst in legs.items():
+        teams.setdefault(nat, {"nat": nat, "bib": None, "legs": []})["legs"] = [n for _, n in sorted(lst)]
+    return sorted(teams.values(), key=lambda t: t["bib"] or 999)
+
+
 def relay_results(payload: dict) -> list[dict]:
     teams = []
     for r in payload.get("Results", []) or []:
