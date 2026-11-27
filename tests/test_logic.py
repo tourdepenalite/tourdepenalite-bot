@@ -92,14 +92,18 @@ def test_in_form():
 
 
 def test_penalty_counts():
-    races = [({"disc": "SP", "penalty_s": 0}, [{"ibu": "a", "rank": 1, "misses_total": 2, "nat": "FRA", "name": "A"},
-                                              {"ibu": "b", "rank": 2, "misses_total": 0, "nat": "NOR", "name": "B"}]),
-             ({"disc": "IN", "penalty_s": 60}, [{"ibu": "a", "rank": 3, "misses_total": 1, "nat": "FRA", "name": "A"}])]
+    races = [({"disc": "SP", "penalty_s": 0}, [{"ibu": "a", "rank": 1, "misses_total": 2, "nat": "FRA", "name": "A", "shots": 10},
+                                              {"ibu": "b", "rank": 2, "misses_total": 0, "nat": "NOR", "name": "B", "shots": 10},
+                                              {"ibu": "c", "rank": 4, "misses_total": 1, "nat": "FRA", "name": "C", "shots": 10}]),
+             ({"disc": "IN", "penalty_s": 60}, [{"ibu": "a", "rank": 3, "misses_total": 1, "nat": "FRA", "name": "A", "shots": 20}])]
     r = stats.penalty_counts(races, [({}, [{"nat": "NOR", "penalties": 1}])])
-    assert r["nations"][0] == {"nat": "FRA", "tours": 2, "minutes": 1.0}       # individuel = minutes, pas de tour
-    assert r["nations"][1]["tours"] == 1                                      # tour de relais compte pour la nation
+    fra = r["nations"][0]
+    assert (fra["nat"], fra["tours"], fra["minutes"]) == ("FRA", 3, 1.0)       # individuel = minutes, pas de tour
+    assert fra["athletes"] == 2 and fra["moy"] == 2.0                          # 4 fautes / 2 athletes
+    nor = r["nations"][1]
+    assert nor["tours"] == 1 and nor["moy"] == 0                              # relais compte au total, pas dans la moyenne
     a = r["athletes"][0]
-    assert (a["tours"], a["minutes"], a["fautes"]) == (2, 1.0, 3)
+    assert (a["tours"], a["minutes"], a["fautes"], a["courses"]) == (2, 1.0, 3, 2) and a["moy"] == 1.5
 
 
 if __name__ == "__main__":

@@ -338,27 +338,39 @@ def penalty_counts(races: list[tuple[dict, list[dict]]], relays: list[tuple[dict
     nations, athletes = {}, {}
 
     def nat(n):
-        return nations.setdefault(n, {"nat": n, "tours": 0, "minutes": 0.0})
+        return nations.setdefault(n, {"nat": n, "tours": 0, "minutes": 0.0, "fautes": 0, "ids": set()})
     for m, rows in races:
         timed = m["disc"] in ("IN", "SI")
         pen_s = m.get("penalty_s") or (60 if m["disc"] == "IN" else 45)
         for r in rows:
-            k = r["misses_total"] or 0
-            if not k:
+            if not r["shots"]:
                 continue
-            a = athletes.setdefault(r["ibu"], {**r, "tours": 0, "minutes": 0.0, "fautes": 0})
+            k = r["misses_total"] or 0
+            a = athletes.setdefault(r["ibu"], {**r, "tours": 0, "minutes": 0.0, "fautes": 0, "courses": 0})
+            n = nat(r["nat"])
+            a["courses"] += 1
+            n["ids"].add(r["ibu"])
             a["fautes"] += k
+            n["fautes"] += k
             if timed:
                 a["minutes"] += k * pen_s / 60
-                nat(r["nat"])["minutes"] += k * pen_s / 60
+                n["minutes"] += k * pen_s / 60
             else:
                 a["tours"] += k
-                nat(r["nat"])["tours"] += k
+                n["tours"] += k
     for m, teams in relays:
         for t in teams:
             nat(t["nat"])["tours"] += t["penalties"]
-    return {"nations": sorted(nations.values(), key=lambda x: (-(x["tours"] + x["minutes"]), x["nat"])),
-            "athletes": sorted(athletes.values(), key=lambda x: (-x["fautes"], -x["tours"]))}
+    # Moyennes en fautes (1 faute = 1 tour, ou 1 penalite de temps en individuel), courses individuelles seulement :
+    # en relais, les tours sont comptes par equipe et les balles de pioche evitent une partie des fautes.
+    for n in nations.values():
+        n["athletes"] = len(n.pop("ids"))
+        n["moy"] = n["fautes"] / n["athletes"] if n["athletes"] else None
+    for a in athletes.values():
+        a["moy"] = a["fautes"] / a["courses"] if a["courses"] else None
+    return {"nations": sorted((n for n in nations.values() if n["tours"] or n["minutes"]),
+                              key=lambda x: (-(x["tours"] + x["minutes"]), x["nat"])),
+            "athletes": sorted((a for a in athletes.values() if a["fautes"]), key=lambda x: (-x["fautes"], -x["tours"]))}
 
 
 def clean_sheets(rows: list[dict]) -> list[dict]:

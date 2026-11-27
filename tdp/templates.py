@@ -657,24 +657,33 @@ def _penalty_slides(site: str, pen: dict, done: int, total: int) -> list[str]:
         nations += [n for n in week["nations"] if n["nat"] == HOME]
     has_min = any(n["minutes"] for n in week["nations"])
 
-    def row(flag_code, label, wk, ss, fr):
+    def moy(v):
+        return f"{v:.1f}".replace(".", ",") if v is not None else "-"
+
+    def row(flag_code, label, wk, ss, av, fr):
         return (f"<div style='display:flex;align-items:center;padding:0 22px;height:76px;border-radius:12px;margin-bottom:8px;"
                 f"background:{FR_BG if fr else ROW}'>{nat(flag_code, 34)}"
                 f"<span class='{'fr' if fr else ''}' style='flex:1;margin-left:16px;font-size:30px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>{e(label)}</span>"
-                f"<span class='num' style='width:250px;text-align:right;font-size:28px;font-weight:900;color:{O}'>{e(wk)}</span>"
-                f"<span class='num' style='width:200px;text-align:right;font-size:24px;font-weight:700;color:var(--soft)'>{e(ss)}</span></div>")
-    head = (f"<div style='display:flex;justify-content:flex-end;padding:0 22px 10px;font-size:20px;color:{MUTED};font-weight:800;letter-spacing:.08em'>"
-            f"<span style='width:250px;text-align:right'>CE WEEK-END</span><span style='width:200px;text-align:right'>SAISON</span></div>")
-    note = ("<div style='font-size:22px;color:" + MUTED + ";margin-top:10px'>En individuel, pas de tour : chaque faute ajoute du temps (en minutes).</div>"
-            if has_min else "")
+                f"<span class='num' style='width:200px;text-align:right;font-size:27px;font-weight:900;color:{O}'>{e(wk)}</span>"
+                f"<span class='num' style='width:170px;text-align:right;font-size:24px;font-weight:700;color:var(--soft)'>{e(ss)}</span>"
+                f"<span class='num' style='width:130px;text-align:right;font-size:27px;font-weight:900'>{e(av)}</span></div>")
+
+    def head(avg_label):
+        return (f"<div style='display:flex;justify-content:flex-end;align-items:flex-end;padding:0 22px 10px;font-size:19px;color:{MUTED};font-weight:800;letter-spacing:.06em;line-height:1.15'>"
+                f"<span style='width:200px;text-align:right'>CE WEEK-END</span><span style='width:170px;text-align:right'>SAISON</span>"
+                f"<span style='width:130px;text-align:right'>{avg_label}</span></div>")
+    note = ("<div style='font-size:21px;color:" + MUTED + ";margin-top:8px;line-height:1.3'>Moyenne de la saison en fautes, courses individuelles"
+            + (". En individuel, pas de tour : chaque faute ajoute du temps." if has_min else ".") + "</div>")
     rows = "".join(row(n["nat"], NAT_FR.get(n["nat"], n["nat"]), _fmt_pen(n["tours"], n["minutes"]),
-                       _fmt_pen(s_nat.get(n["nat"], n)["tours"], s_nat.get(n["nat"], n)["minutes"]), n["nat"] == HOME) for n in nations)
+                       _fmt_pen(s_nat.get(n["nat"], n)["tours"], s_nat.get(n["nat"], n)["minutes"]),
+                       moy(s_nat.get(n["nat"], n)["moy"]), n["nat"] == HOME) for n in nations)
     s1 = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker('LE COMPTEUR DE TOURS DE PÉNALITÉ')}{title('Par nation', 66)}</div>
-<div style='position:absolute;top:360px;left:72px;right:72px'>{head}{rows}{note}</div>"""
+<div style='position:absolute;top:360px;left:72px;right:72px'>{head('MOY. / ATHLÈTE')}{rows}{note}</div>"""
     ath = week["athletes"][:7]
     home = [a for a in week["athletes"] if a["nat"] == HOME and a not in ath][:2]
     rows2 = "".join(row(a["nat"], a["name"], _fmt_pen(a["tours"], a["minutes"]),
-                        _fmt_pen(s_ath.get(a["ibu"], a)["tours"], s_ath.get(a["ibu"], a)["minutes"]), a["nat"] == HOME) for a in ath + home)
+                        _fmt_pen(s_ath.get(a["ibu"], a)["tours"], s_ath.get(a["ibu"], a)["minutes"]),
+                        moy(s_ath.get(a["ibu"], a)["moy"]), a["nat"] == HOME) for a in ath + home)
     s2 = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker('LE COMPTEUR DE TOURS DE PÉNALITÉ')}{title('Les plus pénalisés', 66)}</div>
-<div style='position:absolute;top:360px;left:72px;right:72px'>{head}{rows2}{note}</div>"""
+<div style='position:absolute;top:360px;left:72px;right:72px'>{head('MOY. / COURSE')}{rows2}{note}</div>"""
     return [page(s1, site, "Bilan de l'étape", done + 1, total), page(s2, site, "Bilan de l'étape", done + 2, total)]
