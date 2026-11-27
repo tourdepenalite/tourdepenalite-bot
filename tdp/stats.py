@@ -303,7 +303,13 @@ def stat_candidates(meta: dict, rows: list[dict], start_ranks: dict[str, int] | 
         fautes = f"{missed} faute{'s' if missed > 1 else ''}"
         txt = f"{best_ski['name']} ({best_ski['nat']}) signe le meilleur temps de ski mais finit {ordinal(best_ski['rank'])} avec {fautes}."
         if missed and best_ski["behind_s"] is not None and missed * pen_s > best_ski["behind_s"]:
-            txt += f" Une faute coûte environ {pen_s} s : sans {'elles' if missed > 1 else 'elle'}, {il} était devant au temps estimé."
+            sans = f"sans {'elles' if missed > 1 else 'elle'}"
+            if meta["disc"] in ("IN", "SI"):
+                # Individuel : penalite en temps, fixe, pas de tour : le calcul est exact.
+                pen = "1 minute" if meta["disc"] == "IN" else "45 secondes"
+                txt += f" Chaque faute ajoute {pen} : {sans}, {il} gagnait."
+            else:
+                txt += f" Chaque faute impose un tour de pénalité, environ {pen_s} s : {sans}, {il} était probablement devant."
         c.append({"big": "1re" if meta.get("cat") == "SW" else "1er", "kind": "ski", "short": f"{best_ski['last']}, meilleur temps de ski", "fact": txt, "score": 90 + (10 if best_ski["nat"] == config.HOME_NAT else 0)})
 
     # Sans-faute
