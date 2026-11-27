@@ -748,7 +748,7 @@ def p_reel(st, S: Season, m: dict):
     """Reel « Revivre la course » : la course rejouee tir par tir (courses individuelles)."""
     from . import reel
     nr = len(config.DISCIPLINES.get(m["disc"], {}).get("stages") or [])
-    data = reel.build(m, reel.load_rows(S.c, m["race_id"], nr))
+    data = reel.build({**m, "km": m["_comp"].get("km")}, reel.load_rows(S.c, m["race_id"], nr))
     if not data or len(data["focus"]) < 3:
         raise NotReady("temps par tour pas encore publies")
     h = data["hooks"]["vainqueur"]

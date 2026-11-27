@@ -24,7 +24,7 @@ from .stats import fmt_time, ordinal, ordinal_f, parse_time
 from .templates import HOME, flag, page, set_cat, a_site_txt, e
 
 FPS = 30
-HOOK, INTRO, STAGE, FINISH, OUTRO = 3.0, 2.4, 4.8, 4.4, 1.8
+HOOK, INTRO, STAGE, FINISH, OUTRO = 3.0, 1.0, 4.8, 4.4, 1.8
 TOP_ROWS = 10
 TOP_FR = 3
 
@@ -52,6 +52,17 @@ def load_rows(client, race_id: str, nr_shootings: int) -> list[dict]:
                      "lap": [laps.get(f"LAP{k}", {}).get(i) for k in range(1, nr_shootings + 2)],
                      "crs": [laps.get(f"CRS{k}", {}).get(i) for k in range(1, nr_shootings + 2)]})
     return rows
+
+
+def _loop_km(meta: dict, n: int) -> str:
+    """Distance d'un tour (les tours sont de longueur egale : distance totale / (tirs + 1))."""
+    try:
+        km = float(str(meta.get("km") or "").replace(",", "."))
+    except ValueError:
+        return ""
+    if not km or not n:
+        return ""
+    return f"{km / (n + 1):.2f}".rstrip("0").rstrip(".").replace(".", ",") + " km"
 
 
 def _gap(s: float) -> str:
@@ -110,14 +121,18 @@ def build(meta: dict, rows: list[dict]) -> dict:
         prev = pos
     # Liste affichee a chaque tir = classement au moment du tir (temps de course a l'arrivee au pas de tir) :
     # les 10 premiers, plus le meilleur Francais s'il n'y est pas.
-    # Athletes suivis : top 10 final + 3 meilleurs Francais (hors top 10), ordonnes a chaque tir
-    # selon le classement au moment du tir (temps de course a l'arrivee au pas de tir, tous partants).
-    focus = final[:TOP_ROWS] + [a for a in final[TOP_ROWS:] if a["nat"] == HOME][:TOP_FR]
+    # Liste affichee a chaque tir = classement au moment du tir (temps de course a l'arrivee au pas de tir) :
+    # les 10 premiers, plus les 3 meilleurs Francais qui n'y sont pas.
     vis, at_pos = [], []
     for k in range(n):
         order = sorted(ath, key=lambda a: a["net"][k])
         at_pos.append({a["ibu"]: i + 1 for i, a in enumerate(order)})
-        vis.append(sorted(focus, key=lambda a: at_pos[k][a["ibu"]]))
+        v = order[:TOP_ROWS]
+        v += [a for a in order[TOP_ROWS:] if a["nat"] == HOME][:TOP_FR]
+        vis.append(v)
+    focus = []
+    for v in vis:
+        focus += [a for a in v if a not in focus]
     slots, arr_rank = [], []
     for k in range(n):
         slots.append({a["ibu"]: i for i, a in enumerate(vis[k])})
@@ -131,6 +146,7 @@ def build(meta: dict, rows: list[dict]) -> dict:
     return {
         "hooks": hooks, "hook": "vainqueur",  # choix de Quentin (27/11) ; les deux autres restent disponibles
         "label": meta["label"], "site": meta["site"], "stages": [s.upper() for s in stages], "fem": fem,
+        "loop_km": _loop_km(meta, n),
         "focus": [{"last": a["show"], "nat": a["nat"], "flag": flag(a["nat"]), "fr": a["nat"] == HOME, "misses": a["misses"],
                    "arr": [arr_rank[k].get(a["ibu"]) for k in range(n)], "nvis": [len(v) for v in vis],
                    "pos": [at_pos[k][a["ibu"]] for k in range(n)], "slot": [slots[k].get(a["ibu"]) for k in range(n)]} for a in focus],
@@ -190,7 +206,8 @@ def duration(data: dict) -> float:
 
 STYLE = """
 .k2{font-size:28px;color:var(--flash);font-weight:800;letter-spacing:.12em}
-.tl{position:absolute;top:470px;left:72px;right:150px;height:70px}
+.tl{position:absolute;top:470px;left:72px;right:150px;height:90px}
+.tl .km{position:absolute;top:64px;transform:translateX(-50%);font-size:18px;font-weight:700;color:var(--grey);white-space:nowrap}
 .tl .bar{position:absolute;top:44px;left:12px;right:12px;height:6px;border-radius:3px;background:var(--bar)}
 .tl .fill{position:absolute;top:44px;left:12px;height:6px;border-radius:3px;background:var(--flash)}
 .tl .st{position:absolute;top:0;transform:translateX(-50%);font-size:17px;font-weight:800;letter-spacing:.06em;color:var(--muted);white-space:nowrap;text-align:center}
@@ -235,7 +252,8 @@ const tl = document.getElementById('tl');
 const W = 1080 - 72 - 150 - 24;
 tl.innerHTML = "<div class='bar'></div><div class='fill' id='fill'></div>" + labels.map((l, i) => {{
   const x = 12 + W * i / (labels.length - 1);
-  return `<div class='st' style='left:${{x}}px'>${{l}}</div><div class='pt' id='pt${{i}}' style='left:${{x}}px'></div>`; }}).join('');
+  const km = (D.loop_km && i < labels.length - 1) ? `<div class='km' style='left:${{x + W / (labels.length - 1) / 2}}px'>${{D.loop_km}}</div>` : '';
+  return `<div class='st' style='left:${{x}}px'>${{l}}</div><div class='pt' id='pt${{i}}' style='left:${{x}}px'></div>${{km}}`; }}).join('');
 const rows = document.getElementById('rows');
 rows.innerHTML = D.focus.map((a, i) => `<div class='row' id='r${{i}}' style='top:600px;opacity:0'>
   <span class='ps' id='p${{i}}' style='width:58px;font-size:24px;color:var(--grey);font-weight:900'></span><span style='font-size:30px'>${{a.flag}}</span><span class='nm' style='color:${{a.fr ? "var(--fr)" : "var(--ink)"}}'>${{a.last}}</span>
@@ -295,13 +313,13 @@ function draw(t0) {{
   // stage courante
   const k = Math.min(N - 1, Math.max(0, Math.floor((t - T.intro) / T.stage)));
   const s0 = stageStart(k), inStages = t >= T.intro && t < fin0;
-  const showRows = t >= T.intro - 0.6 && t < fin0 + 0.3;
+  const showRows = t >= -0.3 && t < fin0 + 0.3;
   const kk = t < T.intro ? 0 : k;
   const mv = (t < T.intro || kk === 0) ? 1 : ease((t - s0 + 0.1) / 0.6);
   D.focus.forEach((a, i) => {{
     const r = document.getElementById('r' + i);
     const cur = a.slot[kk], prv = kk > 0 ? a.slot[kk - 1] : cur;
-    const appear = ease((t - (T.intro - 0.8) - (cur ?? 0) * 0.04) / 0.5);
+    const appear = ease((t + 0.3 - (cur ?? 0) * 0.03) / 0.4);
     const out = t >= fin0 ? 1 - ease((t - fin0) / 0.4) : 1;
     // visibilite : entre / sort de la liste au debut de chaque tir
     let vis = 0;
