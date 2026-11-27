@@ -219,16 +219,21 @@ def do_publish(st: dict, key: str):
 
 def handle_decisions(st: dict, now: dt.datetime):
     decisions, st["tg_offset"] = publish.read_decisions(st.get("tg_offset", 0))
-    for action, key in decisions:
+    for action, key, ref in decisions:
         p = st["posts"].get(key)
+        hhmm = dt.datetime.now(config.TZ).strftime("%Hh%M")
         if not p or p["status"] != "pending":
+            done = {"published": "✅ Déjà publié", "cancelled": "❌ Déjà annulé", "expired": "⌛ Expiré"}.get((p or {}).get("status"))
+            publish.mark_message(ref, f"{done or 'ℹ️ Plus en attente'} (clic reçu à {hhmm}, rien à faire)")
             continue
         if action == "ok":
             do_publish(st, key)
             ok = p["status"] == "published"
+            publish.mark_message(ref, f"✅ PUBLIÉ à {hhmm}" if ok else f"⚠️ ÉCHEC de publication à {hhmm} : {p.get('error', '')[:200]}")
             publish.notify(f"✅ {key} publié sur Instagram." if ok else f"⚠️ {key} : échec de publication, voir le journal.")
         else:
             p["status"] = "cancelled"
+            publish.mark_message(ref, f"❌ ANNULÉ à {hhmm}")
             publish.notify(f"❌ {key} annulé.")
     for key, p in st["posts"].items():
         if p["status"] == "pending" and p.get("expires") and now > dt.datetime.fromisoformat(p["expires"]):
