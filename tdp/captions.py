@@ -13,6 +13,8 @@ Règles strictes :
 - Utilise UNIQUEMENT les faits et chiffres fournis. N'invente aucun chiffre, aucun record, aucune citation, aucune info sur la vie des athlètes.
 - Ne modifie aucun nombre. N'ajoute pas de superlatif historique ("historique", "record") sauf s'il est dans les faits.
 - Pas de tiret cadratin. Pas d'année ni de date (elles sont dans le visuel).
+- Un fait marqué « saison passée » ou « saison 25-26 » concerne la saison précédente : ne le présente JAMAIS comme la saison en cours (pas de « mène le général », « en tête du général », « leader »). Écris par exemple « vainqueur du général la saison dernière ».
+- Avant la première course de la saison, il n'existe pas de classement général : n'en parle pas au présent.
 - Réponds uniquement avec un objet JSON valide, sans texte autour.
 
 Légende Instagram (champ "caption"), optimisée pour la découverte :

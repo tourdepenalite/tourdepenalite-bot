@@ -375,6 +375,8 @@ def p_pre_race(st, S: Season, m: dict, ev):
     favs = stats.favorites(m, season_rows, fallback, start_list)
     feed, story = templates.pre_race(m, m["label"], lines, favs, KEY_POINT.get(m["disc"], ""))
     facts = [f"{m['label']} à {m['site']}, départ {m['start'].strftime('%H:%M')}."] + [f"Favori : {f['name']} ({f['nat']}), {f['why']}." for f in favs]
+    if not [r for mm, r in season_rows if mm["cat"] == m["cat"]]:
+        facts.append("Première course de la saison pour cette catégorie : pas encore de classement général cette saison.")
     fb = [f"⏱️ {m['label']} {templates.a_site_txt(m['site'])}, départ à {m['start'].strftime('%H:%M')}",
           "Nos favoris : " + ", ".join(f["name"] for f in favs) + ".",
           "Votre pronostic pour la victoire ? 👇"]
@@ -439,6 +441,12 @@ def p_depart(st, S: Season, m: dict):
             expires=m["start"] + dt.timedelta(minutes=30), auto=True)
 
 
+def le(label: str) -> str:
+    """« le sprint », « l'individuel »."""
+    l = label.lower()
+    return ("l'" if l[:1] in "aeiouyéèêh" else "le ") + l
+
+
 def fautes(n) -> str:
     n = n or 0
     return "sans faute" if n == 0 else f"{n} faute{'s' if n > 1 else ''}"
@@ -477,7 +485,7 @@ def p_post_race(st, S: Season, m: dict, payload: dict):
     facts += [f"Français : {r['name']} {r['rank']}e ({r['misses_total']} faute(s))." for r in home[:6]]
     o = stats.ordinal_f if m["cat"] == "SW" else stats.ordinal
     best = home[0] if home else None
-    fb = [f"🏆 {w['name']} remporte le {m['label'].lower()} {templates.a_site_txt(m['site'])}",
+    fb = [f"🏆 {w['name']} remporte {le(m['label'])} {templates.a_site_txt(m['site'])}",
           f"Coupe du monde de biathlon, le podium : {w['name']}, {fin[1]['name']} ({stats.fmt_gap(fin[1]['behind_s'])}), {fin[2]['name']} ({stats.fmt_gap(fin[2]['behind_s'])}).",
           (f"🇫🇷 {'Meilleure Française' if m['cat'] == 'SW' else 'Meilleur Français'} : {best['name']}, {o(best['rank'])}." if best else ""),
           f"Ski, tir et fiche de {'chaque Bleue' if m['cat'] == 'SW' else 'chaque Bleu'} dans le carrousel 👉",
@@ -486,7 +494,7 @@ def p_post_race(st, S: Season, m: dict, payload: dict):
     cap = captions.post_race(m, "\n".join(facts), cands, f"{w['last']} s'impose {templates.a_site_txt(m['site'])}",
                              "\n".join(x for x in fb if x), tags)
     slides = templates.results_carousel(m, rows, cap["headline"], cap.get("stat"))
-    alts = [f"Podium du {m['label'].lower()} de Coupe du monde de biathlon {templates.a_site_txt(m['site'])} : "
+    alts = [f"Podium de {le(m['label'])} de Coupe du monde de biathlon {templates.a_site_txt(m['site'])} : "
             f"1. {w['name']} ({w['nat']}), 2. {fin[1]['name']} ({fin[1]['nat']}), 3. {fin[2]['name']} ({fin[2]['nat']}).",
             "Top 10 : " + ", ".join(f"{r['rank']}. {r['name']} ({r['nat']}, {fautes(r['misses_total'])})" for r in fin[:10]) + "."]
     if cap.get("stat"):

@@ -452,7 +452,8 @@ def favorites(meta: dict, season_rows: list[tuple[dict, list[dict]]], fallback_s
         return out
     races = [(m, rows) for m, rows in season_rows if m["cat"] == meta["cat"] and not m["relay"]][-config.FAVORITES_FORM_RACES:]
     if len(races) < 2:
-        return [{**r, "why": f"{ordinal(r['rank'])} du général" + (f" ({r['why_prefix']})" if r.get("why_prefix") else "")}
+        return [{**r, "why": (f"{ordinal(r['rank'])} du général la saison passée ({r['why_prefix'].replace('saison ', '')})"
+                             if r.get("why_prefix") else f"{ordinal(r['rank'])} du général")}
                 for r in fallback_standings[:n]]
     score, info = {}, {}
     for _, rows in races:
