@@ -91,6 +91,13 @@ def site_key(text: str) -> str | None:
 
 # ----------------------------------------------------------------- courses
 
+def _int(v) -> int | None:
+    try:
+        return int(v) if v not in (None, "") else None
+    except (TypeError, ValueError):
+        return None
+
+
 def race_meta(comp: dict, event: dict | None = None) -> dict:
     disc = comp.get("DisciplineId") or ""
     cat = comp.get("catId") or comp.get("CatId") or ""
@@ -123,6 +130,8 @@ def race_meta(comp: dict, event: dict | None = None) -> dict:
         "site_key": sk,
         "site": config.SITES[sk]["name"] if sk else (ev.get("Organizer") or ev.get("ShortDescription") or ""),
         "event_id": ev.get("EventId"),
+        "penalty_s": _int(comp.get("PenaltySeconds")),     # fourni par l'IBU (60 en individuel)
+        "nr_shootings": _int(comp.get("NrShootings")),
     }
 
 
@@ -258,12 +267,25 @@ def _birth(bio: dict) -> dt.date | None:
     return None
 
 
-def u23_standings(client: Client, rows: list[dict], first_race: dt.date, limit: int = 40) -> list[dict]:
+def birth_map(client: Client, race_ids: list[str]) -> dict[str, dt.date]:
+    """Dates de naissance via l'endpoint Athletes (un appel par course au lieu d'un par athlete)."""
+    out = {}
+    for rid in race_ids:
+        for a in client.athletes(rid):
+            b = _birth({"BirthDate": a.get("Birthdate")})
+            if a.get("IBUId") and b:
+                out[str(a["IBUId"])] = b
+    return out
+
+
+def u23_standings(client: Client, rows: list[dict], first_race: dt.date, limit: int = 40,
+                  births: dict[str, dt.date] | None = None) -> list[dict]:
     """Classement jeunes : moins de 23 ans a la premiere course de la saison
     (regle reprise d'un outil existant, a confirmer aupres de l'IBU)."""
     out = []
+    births = births or {}
     for r in rows[:limit]:
-        b = _birth(client.bio(r["ibu"]))
+        b = births.get(r["ibu"]) or _birth(client.bio(r["ibu"]))
         if not b:
             continue
         age = first_race.year - b.year - ((first_race.month, first_race.day) < (b.month, b.day))
@@ -292,6 +314,8 @@ def stat_candidates(meta: dict, rows: list[dict], start_ranks: dict[str, int] | 
     c = []
     win = fin[0]
     pen_s = config.DISCIPLINES.get(meta["disc"], {}).get("penalty_s", 25)
+    if meta["disc"] in ("IN", "SI") and meta.get("penalty_s"):
+        pen_s = meta["penalty_s"]  # valeur officielle IBU
     home = [r for r in fin if r["nat"] == config.HOME_NAT]
     il = "elle" if meta.get("cat") == "SW" else "il"
     le = "la" if meta.get("cat") == "SW" else "le"

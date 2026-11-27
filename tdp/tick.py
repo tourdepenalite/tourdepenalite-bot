@@ -171,7 +171,30 @@ def handle_decisions(st: dict, now: dt.datetime):
 
 # ================================================================ meteo (open-meteo, sans cle)
 
-def weather(meta: dict) -> str | None:
+SKY_FR = [("overcast", "couvert"), ("cloud", "nuageux"), ("sun", "ensoleillé"), ("clear", "dégagé"), ("fog", "brouillard"),
+          ("snow", "neige"), ("rain", "pluie"), ("drizzle", "bruine")]
+SNOW_FR = [("hard", "neige dure"), ("packed", "neige tassée"), ("icy", "neige glacée"), ("wet", "neige mouillée"),
+           ("soft", "neige molle"), ("powder", "neige poudreuse"), ("new", "neige fraîche")]
+
+
+def _fr(text: str, table) -> str | None:
+    t = (text or "").lower()
+    return next((fr for en, fr in table if en in t), None)
+
+
+def weather(meta: dict, client: Client | None = None) -> str | None:
+    """Meteo officielle IBU du stade si publiee, sinon prevision open-meteo."""
+    if client and meta.get("race_id"):
+        w = client.weather(meta["race_id"])
+        if w.get("AirTemperature_C") is not None:
+            parts = [f"{round(w['AirTemperatureDec_C'] if w.get('AirTemperatureDec_C') is not None else w['AirTemperature_C'])} °C"]
+            if (sky := _fr(w.get("WeatherCondition"), SKY_FR)):
+                parts.append(sky)
+            if w.get("WindSpeed_KMH") is not None:
+                parts.append(f"vent {w['WindSpeed_KMH']} km/h")
+            if (snow := _fr(w.get("SnowCondition"), SNOW_FR)):
+                parts.append(snow)
+            return " · ".join(parts)
     site = config.SITES.get(meta["site_key"] or "")
     if not site or not meta["start"] or os.environ.get("TDP_IBU_FIXTURES"):
         return None
@@ -184,7 +207,7 @@ def weather(meta: dict) -> str | None:
         i = h["time"].index(target)
         wind = h["wind_speed_10m"][i]
         wtxt = "vent faible" if wind < 10 else ("vent modéré" if wind < 25 else "vent fort")
-        return f"{round(h['temperature_2m'][i])} °C · {wtxt}"
+        return f"{round(h['temperature_2m'][i])} °C · {wtxt} (prévision)"
     except Exception:
         return None
 
@@ -243,7 +266,8 @@ def p_classement(st, S: Season, ev):
         head = f"Égalité en tête entre {a['last']} et {b['last']}" if d == 0 else f"{d} point{'s' if d > 1 else ''} entre {a['last']} et {b['last']}"
         facts.append(f"{config.CATEGORIES[cat]} : {a['name']} {a['score']} pts, {b['name']} {b['score']} pts.")
         slides_data.append((f"CLASSEMENT GÉNÉRAL · {config.CATEGORIES[cat].upper()}", rows, head, f"Après {len(races)} courses · ⬤ dossard jaune", False, cat))
-        young = stats.u23_standings(S.c, rows, first_race)
+        births = stats.birth_map(S.c, [m["race_id"] for m, _ in races if m["cat"] == cat][-2:])
+        young = stats.u23_standings(S.c, rows, first_race, births=births)
         for i, y in enumerate(young):
             y["young_rank"] = i + 1
         if young:
@@ -269,13 +293,17 @@ def p_pre_race(st, S: Season, m: dict, ev):
     d = config.DISCIPLINES[m["disc"]]
     stages = d["stages"]
     tirs = f"{len(stages)} tirs ({', '.join(dict.fromkeys(s.lower() for s in stages))})"
-    lines = [("Format", f"{d['laps']} tours · {tirs}"), ("Pénalité", d["penalty"])]
+    pen = d["penalty"]
+    if m["disc"] in ("IN", "SI") and m.get("penalty_s"):
+        ps = m["penalty_s"]
+        pen = f"{ps // 60} min ajoutée par faute" if ps % 60 == 0 else f"{ps} s ajoutées par faute"
+    lines = [("Format", f"{d['laps']} tours · {tirs}"), ("Pénalité", pen)]
     site = config.SITES.get(m["site_key"] or "", {})
     if site.get("altitude"):
         lines.append(("Altitude", f"{site['altitude']} m"))
     if site.get("profile"):
         lines.append(("Parcours", site["profile"]))
-    if w := weather(m):
+    if w := weather(m, S.c):
         lines.append(("Météo", w))
     season_rows = S.finished_races()
     start_list = None

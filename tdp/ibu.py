@@ -111,6 +111,20 @@ class Client:
         except Exception:
             return {}
 
+    def weather(self, race_id: str) -> dict:
+        """Meteo officielle du stade (air, neige, vent). Vide si pas encore publiee."""
+        try:
+            return dict(self.get("weather", cache_s=600, RaceId=race_id) or {})
+        except Exception:
+            return {}
+
+    def athletes(self, race_id: str) -> list[dict]:
+        """Athletes d'une course, avec leur date de naissance (un seul appel)."""
+        try:
+            return list((self.get("Athletes", cache_s=86400, RaceId=race_id) or {}).get("Athletes") or [])
+        except Exception:
+            return []
+
     def total_cup_id(self, season: str, cat: str, level: int = 1) -> str | None:
         for c in self.cups(season):
             if c.get("CatId") == cat and c.get("Level") == level and c.get("DisciplineId") == "TS":
