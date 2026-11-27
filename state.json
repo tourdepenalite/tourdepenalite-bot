@@ -21,6 +21,24 @@
    ],
    "ig_id": "18122226223960028",
    "published": "2026-11-27T13:36:03.155594+01:00"
+  },
+  "pre:BT2627SWRLCP01SMIN": {
+   "kind": "avant_course",
+   "status": "pending",
+   "urls": [
+    "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/pre/BT2627SWRLCP01SMIN/20261127123824_s_01.jpg"
+   ],
+   "story_url": "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/pre/BT2627SWRLCP01SMIN/20261127123824_s_02.jpg",
+   "caption": "Campbell Wright mène le général avant l'Individuel 🎯\nBiathlon, Coupe du monde, Kontiolahti : l'Individuel hommes 20 km part à 16:15.\nTrois favoris sur la ligne : Campbell Wright (USA), 1er du général, Justus Strelow (GER), 2e, et Vetle Sjaastad Christiansen (NOR), 3e.\nLe 20 km, c'est la course où chaque tir compte.\nQui va s'imposer à Kontiolahti selon vous ?\n\n#biathlon #kontiolahti #campbellwright #biathlonfrance #coupedumondebiathlon",
+   "alts": [
+    "Tour de pénalité, statistiques de biathlon : Campbell Wright mène le général avant l'Individuel 🎯 (visuel 1/1)"
+   ],
+   "created": "2026-11-26T14:30:00+01:00",
+   "expires": "2026-11-28T09:38:26.957900+01:00",
+   "files": [
+    "out/pre_BT2627SWRLCP01SMIN/s_01.jpg",
+    "out/pre_BT2627SWRLCP01SMIN/s_02.jpg"
+   ]
   }
  },
  "tg_offset": 969544669,
