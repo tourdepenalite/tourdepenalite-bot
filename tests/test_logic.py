@@ -57,6 +57,14 @@ def test_retry_after_error():
     assert not tick.finished(st, "a") and tick.finished(st, "b") and tick.finished(st, "c") and not tick.finished(st, "d")
 
 
+def test_weather_from_ibu():
+    class C:
+        def weather(self, rid):
+            return {"AirTemperature_C": -4, "AirTemperatureDec_C": -4.4, "WeatherCondition": "Overcast",
+                    "WindSpeed_KMH": 8, "SnowCondition": "Hard packed variable"}
+    assert tick.weather({"race_id": "X", "site_key": None, "start": None}, C()) == "-4 °C · couvert · vent 8 km/h · neige dure"
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):

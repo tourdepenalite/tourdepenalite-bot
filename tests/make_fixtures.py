@@ -79,7 +79,11 @@ def race(race_id, disc, cat, start_iso):
                      "Shootings": "+".join(map(str, r["misses"])), "ShootingTotal": str(sum(r["misses"]))})
         for k, v in (("CRST", r["ski"]), ("RNGT", r["rng"]), ("STTM", r["shoot"])):
             ana[k].append({"IBUId": a["IBUId"], "TotalTime": fmt(v), "IsTeam": False})
-    comp = {"RaceId": race_id, "DisciplineId": disc, "catId": cat, "ShortDescription": f"{'Men' if cat=='SM' else 'Women'} {km}km {disc}", "km": km, "StartTime": start_iso, "StatusText": "Official Results"}
+    comp = {"RaceId": race_id, "DisciplineId": disc, "catId": cat, "ShortDescription": f"{'Men' if cat=='SM' else 'Women'} {km}km {disc}", "km": km, "StartTime": start_iso, "StatusText": "Official Results",
+            "PenaltySeconds": 60 if disc == "IN" else 0, "NrShootings": stages}
+    (OUT / f"weather_{race_id}.json").write_text(json.dumps({"AirTemperature_C": -6, "AirTemperatureDec_C": -5.6, "WeatherCondition": "Light snow",
+                                                              "WindSpeed_KMH": 7, "SnowCondition": "Hard packed variable"}))
+    (OUT / f"Athletes_{race_id}.json").write_text(json.dumps({"Athletes": [{"IBUId": a["IBUId"], "Birthdate": a["birth"] + "T00:00:00"} for a in field]}))
     (OUT / f"Results_{race_id}.json").write_text(json.dumps({"Competition": comp, "Results": rows}))
     for k, v in ana.items():
         (OUT / f"AnalyticResults_{race_id}_{k}.json").write_text(json.dumps({"Results": v}))
