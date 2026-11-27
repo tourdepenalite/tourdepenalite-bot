@@ -42,6 +42,50 @@
    "ig_id": "18103458182430235",
    "ig_story_id": "17879007183587279",
    "published": "2026-11-27T13:40:50.598754+01:00"
+  },
+  "post:BT2627SWRLCP01SMIN": {
+   "kind": "apres_course",
+   "status": "pending",
+   "urls": [
+    "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SMIN/20261127124407_s_01.jpg",
+    "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SMIN/20261127124407_s_02.jpg",
+    "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SMIN/20261127124407_s_03.jpg",
+    "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SMIN/20261127124407_s_04.jpg",
+    "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SMIN/20261127124407_s_05.jpg",
+    "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SMIN/20261127124407_s_06.jpg",
+    "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SMIN/20261127124407_s_07.jpg",
+    "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SMIN/20261127124407_s_08.jpg",
+    "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SMIN/20261127124407_s_09.jpg",
+    "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SMIN/20261127124407_s_10.jpg"
+   ],
+   "story_url": null,
+   "caption": "🏆 Campbell Wright remporte le individuel hommes 20 km à Kontiolahti\nCoupe du monde de biathlon, le podium : Campbell Wright, Justus Strelow (+1:20.1), Vetle Sjaastad Christiansen (+1:23.2).\n🇫🇷 Meilleur Français : Emilien Claude, 8e.\nSki, tir et fiche de chaque Bleu dans le carrousel 👉\nQui vous a le plus impressionné aujourd'hui ?\n\n#biathlon #kontiolahti #campbellwright #emilienclaude #biathlonfrance",
+   "alts": [
+    "Podium du individuel hommes 20 km de Coupe du monde de biathlon à Kontiolahti : 1. Campbell Wright (USA), 2. Justus Strelow (GER), 3. Vetle Sjaastad Christiansen (NOR).",
+    "Top 10 : 1. Campbell Wright (USA, sans faute), 2. Justus Strelow (GER, 1 faute), 3. Vetle Sjaastad Christiansen (NOR, 2 fautes), 4. Sturla Holm Laegreid (NOR, 1 faute), 5. Niklas Hartweg (SUI, 1 faute), 6. Philipp Horn (GER, 2 fautes), 7. Martin Uldal (NOR, 2 fautes), 8. Emilien Claude (FRA, 2 fautes), 9. Lukas Hofer (ITA, 2 fautes), 10. Oscar Lombardot (FRA, 2 fautes).",
+    "Stat du jour : Botn, meilleur temps de ski. Johan-Olav Smoerdal Botn (NOR) signe le meilleur temps de ski mais finit 16e avec 4 fautes. Chaque faute ajoute 1 minute : sans elles, il gagnait.",
+    "Fiche de Emilien Claude : 8e, 20e temps de ski, 18/20 au tir.",
+    "Fiche de Oscar Lombardot : 10e, 11e temps de ski, 18/20 au tir.",
+    "Fiche de Eric Perrot : 11e, 3e temps de ski, 17/20 au tir.",
+    "Fiche de Gaetan Paturel : 32e, 18e temps de ski, 16/20 au tir.",
+    "Fiche de Fabien Claude : 52e, 22e temps de ski, 15/20 au tir.",
+    "Fiche de Quentin Fillon Maillet : 83e, 23e temps de ski, 13/20 au tir.",
+    "Fiche de Valentin Lejeune : 101e, 101e temps de ski, 15/20 au tir."
+   ],
+   "created": "2026-11-26T18:00:00+01:00",
+   "expires": "2026-11-28T09:44:12.608639+01:00",
+   "files": [
+    "out/post_BT2627SWRLCP01SMIN/s_01.jpg",
+    "out/post_BT2627SWRLCP01SMIN/s_02.jpg",
+    "out/post_BT2627SWRLCP01SMIN/s_03.jpg",
+    "out/post_BT2627SWRLCP01SMIN/s_04.jpg",
+    "out/post_BT2627SWRLCP01SMIN/s_05.jpg",
+    "out/post_BT2627SWRLCP01SMIN/s_06.jpg",
+    "out/post_BT2627SWRLCP01SMIN/s_07.jpg",
+    "out/post_BT2627SWRLCP01SMIN/s_08.jpg",
+    "out/post_BT2627SWRLCP01SMIN/s_09.jpg",
+    "out/post_BT2627SWRLCP01SMIN/s_10.jpg"
+   ]
   }
  },
  "tg_offset": 969544670,
@@ -92,5 +136,10 @@
    "SW": {}
   }
  },
- "watch": {}
+ "watch": {
+  "BT2627SWRLCP01SMIN": {
+   "sig": "5a168f2fe548917cd4f6d246354b9526",
+   "status": "Final | Final"
+  }
+ }
 }
