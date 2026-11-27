@@ -531,6 +531,10 @@ def p_post_race(st, S: Season, m: dict, payload: dict):
     clean = stats.clean_sheets(rows)
     best_shooters = sorted([r for r in fin if r["shots"]], key=lambda r: (r["misses_total"] or 0, r["rank"]))[:5]
     stories = ([templates.story_bleus(m, home)] if home else []) + [templates.story_sans_faute(m, clean, best_shooters)]
+    if start_ranks:
+        mv = stats.pursuit_moves(rows, start_ranks, config.HOME_NAT)
+        if mv.get("up") or mv.get("down"):
+            stories.append(templates.story_poursuite(m, mv))
     produce(st, f"post:{m['race_id']}", "apres_course", slides, cap["caption"], stories, alts=alts)
 
 

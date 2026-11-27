@@ -131,6 +131,18 @@ def test_birthdays():
     assert len(stats.birthdays(races, births, dt.date(2026, 12, 16), 7)) == 1
 
 
+def test_pursuit_moves():
+    r = lambda ibu, nat, rank: {"ibu": ibu, "nat": nat, "rank": rank, "name": ibu}
+    rows = [r("a", "NOR", 1), r("b", "ITA", 5), r("c", "SWE", 24), r("d", "FRA", 20), r("e", "GER", None)]
+    start = {"a": 2, "b": 32, "c": 3, "d": 35, "e": 1}
+    mv = stats.pursuit_moves(rows, start)
+    assert (mv["up"]["ibu"], mv["up"]["gain"]) == ("b", 27)
+    assert (mv["down"]["ibu"], mv["down"]["gain"]) == ("c", -21)        # e abandonne : pas une chute
+    assert mv["fr"]["ibu"] == "d" and mv["fr"]["gain"] == 15
+    mv = stats.pursuit_moves(rows, {**start, "d": 25})
+    assert mv["fr"] is None                                              # remontee francaise < 10 places
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):
