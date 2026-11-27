@@ -197,6 +197,10 @@
   "BT2627SWRLCP01SMIN": {
    "sig": "5a168f2fe548917cd4f6d246354b9526",
    "status": "Final | Final"
+  },
+  "BT2627SWRLCP01SWIN": {
+   "sig": "280dcfe4e99cd7946b92519355f6522e",
+   "status": "Running | Running"
   }
  }
 }
