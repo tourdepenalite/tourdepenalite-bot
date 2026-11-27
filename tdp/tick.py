@@ -512,6 +512,14 @@ def p_post_race(st, S: Season, m: dict, payload: dict):
     fin = [r for r in rows if r["rank"]]
     if len(fin) < 3:
         raise NotReady("moins de 3 classes")
+    # Les temps de ski / pas de tir / tir (analyse IBU) arrivent parfois apres le classement officiel :
+    # on les attend jusqu'a 30 min ; au-dela on publie sans, et la version complete remplacera le post
+    # tant qu'il n'est pas valide (voir p_redo).
+    complete = analysis_coverage(fin) >= 0.8
+    w = st["watch"].setdefault(m["race_id"], {})
+    w.setdefault("ready_at", NOW.isoformat())
+    if not complete and NOW - dt.datetime.fromisoformat(w["ready_at"]) < dt.timedelta(minutes=30):
+        raise NotReady("temps de ski et de pas de tir pas encore publies")
     start_ranks = None
     if m["disc"] == "PU":
         sprint = next((r for sm, r in S.finished_races() if sm["event_id"] == m["event_id"] and sm["disc"] == "SP" and sm["cat"] == m["cat"]), None)
@@ -556,6 +564,7 @@ def p_post_race(st, S: Season, m: dict, payload: dict):
         if mv.get("up") or mv.get("down"):
             stories.append(templates.story_poursuite(m, mv))
     produce(st, f"post:{m['race_id']}", "apres_course", slides, cap["caption"], stories, alts=alts)
+    st["posts"][f"post:{m['race_id']}"]["complete"] = complete
 
 
 def p_bilan(st, S: Season, ev):
@@ -771,6 +780,21 @@ def p_reel(st, S: Season, m: dict):
     produce_video(st, f"reel:{m['race_id']}", "reel", path, cap["caption"], thumb_ms=1600)
 
 
+def analysis_coverage(fin: list[dict]) -> float:
+    """Part des classes qui ont leurs temps d'analyse (ski et pas de tir)."""
+    return sum(1 for r in fin if r["ski"] and r["range"]) / len(fin) if fin else 0.0
+
+
+def p_redo(st, S: Season, m: dict):
+    """Post apres course produit sans les temps d'analyse et pas encore valide : on le refait des qu'ils arrivent."""
+    payload = S.c.results(m["race_id"])
+    fin = [r for r in stats.individual_results(S.c, m["race_id"], payload) if r["rank"]]
+    if analysis_coverage(fin) < 0.8:
+        raise NotReady("temps d'analyse toujours absents")
+    publish.notify(f"🔁 post:{m['race_id']} : nouvelle version avec les temps de ski et de pas de tir (remplace la précédente).")
+    p_post_race(st, S, m, payload)
+
+
 # ================================================================ boucle
 
 def finished(st: dict, key: str) -> bool:
@@ -831,6 +855,9 @@ def _run(st: dict, now: dt.datetime):
                 if ok or stable:
                     todo.append((f"post:{m['race_id']}", lambda m=m, p=payload: p_post_race(st, S, m, p)))
             post = st["posts"].get(f"post:{m['race_id']}") or {}
+            if (not m["relay"] and -12 * 60 <= delta < -20 and post.get("status") == "pending"
+                    and post.get("kind") == "apres_course" and not post.get("complete")):
+                todo.append((f"redo:{m['race_id']}:{post.get('created', '')}", lambda m=m: p_redo(st, S, m)))
             if (config.REEL and not m["relay"] and -12 * 60 <= delta < -20 and post.get("status") in ("pending", "published")
                     and not finished(st, f"reel:{m['race_id']}")):
                 todo.append((f"reel:{m['race_id']}", lambda m=m: p_reel(st, S, m)))
