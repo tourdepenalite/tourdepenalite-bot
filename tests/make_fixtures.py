@@ -40,6 +40,8 @@ def athletes(cat):
                         "acc": min(0.97, max(0.75, rnd.gauss(0.87, 0.05))), "shoot_speed": rnd.gauss(28, 3),
                         "birth": f"{rnd.randint(1994, 2005)}-0{rnd.randint(1, 9)}-1{rnd.randint(0, 9)}"})
             i += 1
+    if cat == "SM":
+        lst[[a["Nat"] for a in lst].index("FRA")]["birth"] = "1998-12-22"   # anniversaire pendant la simulation
     return lst
 
 

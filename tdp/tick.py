@@ -692,6 +692,36 @@ def p_an_dernier(st, S: Season, ev):
     produce(st, f"ici:{ev['EventId']}", "an_dernier", templates.last_time(site, label, k == 1, by_cat, hl), cap["caption"])
 
 
+def _birthdays(S: Season, start: dt.date, days: int) -> list[dict]:
+    races = S.finished_races()
+    births = stats.birth_map(S.c, [m["race_id"] for m, _ in races])
+    return stats.birthdays(races, births, start, days, config.HOME_NAT)
+
+
+def p_anniversaire(st, S: Season, a: dict):
+    races = [(m, r) for m, r in S.finished_races() if m["cat"] == a["cat"]]
+    gen = {g["ibu"]: g for g in stats.standings(S.c, S.id, a["cat"])}
+    g = gen.get(a["ibu"], {"ibu": a["ibu"], "rank": None, "score": 0, "nat": a["nat"]})
+    card = stats.season_card(g, races)
+    story = templates.story_anniversaire(a, card, g.get("rank"), g.get("score", 0))
+    produce(st, f"anniv:{a['ibu']}:{a['day'].year}", "anniversaire", [], f"🎂 Joyeux anniversaire {a['name']} ({a['age']} ans)",
+            story=story, expires=NOW.replace(hour=22, minute=0))
+
+
+def birthdays_todo(st, S: Season, now: dt.datetime) -> list:
+    """Story a 9h le jour J ; liste des 7 prochains jours envoyee sur Telegram le lundi (verification a l'avance)."""
+    if now.hour < config.SCHEDULE["anniversaire_hour"] or not S.finished_races():
+        return []
+    today = now.date()
+    if st.get("anniv_list") != today.isoformat() and now.weekday() == 0:
+        st["anniv_list"] = today.isoformat()
+        nxt = _birthdays(S, today, 7)
+        lines = [f"{a['day'].strftime('%d/%m')} : {a['name']} ({a['age']} ans)" for a in nxt] or ["aucun"]
+        print("[anniversaires] 7 prochains jours :", "; ".join(lines))
+        publish.notify("🎂 Anniversaires des 7 prochains jours (story à 9h) :\n" + "\n".join(lines))
+    return [(f"anniv:{a['ibu']}:{today.year}", lambda a=a: p_anniversaire(st, S, a)) for a in _birthdays(S, today, 1)]
+
+
 # ================================================================ boucle
 
 def finished(st: dict, key: str) -> bool:
@@ -760,6 +790,7 @@ def _run(st: dict, now: dt.datetime):
             todo.append((f"bleus:{done['EventId']}:{cat}", lambda cat=cat: p_bleus(st, S, done, cat)))
     if done and at(now, config.SCHEDULE["duel"]):
         todo.append((f"duel:{done['EventId']}", lambda: p_duel(st, S, done)))
+    todo += birthdays_todo(st, S, now)
 
     for key, fn in todo:
         prev = st["posts"].get(key)
