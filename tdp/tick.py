@@ -51,6 +51,7 @@ class Season:
         self.id = client.current_season()
         self.events = sorted(client.events(self.id, config.WC_LEVEL), key=lambda e: e.get("StartDate") or "")
         self._races = None
+        self._spans = {}
 
     def previous_id(self) -> str:
         a, b = int(self.id[:2]), int(self.id[2:])
@@ -64,25 +65,48 @@ class Season:
         out = [stats.race_meta(c, ev) | {"_comp": c} for c in self.c.competitions(ev["EventId"])]
         return sorted([m for m in out if m["start"]], key=lambda m: m["start"])
 
+    def race_span(self, ev) -> tuple[dt.datetime | None, dt.datetime | None]:
+        """Premiere et derniere course de l'etape. Les dates de l'etape publiees par l'IBU
+        incluent les jours d'entrainement : on se fie aux horaires des courses."""
+        key = ev.get("EventId")
+        if key not in self._spans:
+            starts = [m["start"] for m in self.comps(ev)]
+            self._spans[key] = (min(starts), max(starts)) if starts else (None, None)
+        return self._spans[key]
+
+    def _near(self, ev, days: int) -> bool:
+        s, e = self.ev_dates(ev)
+        today = self.now.date()
+        return bool(s and e and (s - today).days <= days + 7 and (today - e).days <= days + 7)
+
     def upcoming(self, days=7):
+        """Etape dont la premiere course n'a pas encore eu lieu et tombe dans les `days` jours."""
+        best = None
         for ev in self.events:
-            s, e = self.ev_dates(ev)
-            if s and 0 <= (s - self.now.date()).days <= days:
-                return ev
-        return None
+            if not self._near(ev, days):
+                continue
+            first, _ = self.race_span(ev)
+            if first and first > self.now and (first.date() - self.now.date()).days <= days:
+                if not best or first < self.race_span(best)[0]:
+                    best = ev
+        return best
 
     def running(self):
         for ev in self.events:
-            s, e = self.ev_dates(ev)
-            if s and e and s <= self.now.date() <= e:
+            if not self._near(ev, 0):
+                continue
+            first, last = self.race_span(ev)
+            if first and last and first.date() <= self.now.date() <= last.date():
                 return ev
         return None
 
     def just_ended(self, max_days=4):
         best = None
         for ev in self.events:
-            s, e = self.ev_dates(ev)
-            if e and 0 < (self.now.date() - e).days <= max_days:
+            if not self._near(ev, max_days):
+                continue
+            _, last = self.race_span(ev)
+            if last and 0 < (self.now.date() - last.date()).days <= max_days:
                 best = ev
         return best
 
@@ -483,8 +507,8 @@ def _run(st: dict, now: dt.datetime):
     if up and at(now, config.SCHEDULE["programme"]):
         todo.append((f"prog:{up['EventId']}", lambda: p_programme(st, S, up)))
     if up:
-        s0, _ = S.ev_dates(up)
-        if (s0 - now.date()).days <= 2:
+        first, _ = S.race_span(up)
+        if first and (first.date() - now.date()).days <= 2:
             snapshot(st, S, up)  # juste avant l'etape : base du "qui monte, qui descend"
         if at(now, config.SCHEDULE["classement"]):
             todo.append((f"gen:{up['EventId']}", lambda: p_classement(st, S, up)))
