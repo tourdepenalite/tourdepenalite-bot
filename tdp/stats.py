@@ -553,6 +553,20 @@ def athlete_week(ibu: str, event_races: list[tuple[dict, list[dict]]], season_ra
             "form": [r["rank"] for _, r in ss][-6:]}
 
 
+def season_card(g: dict, season_races: list[tuple[dict, list[dict]]]) -> dict:
+    """Stats de saison d'un athlete : victoires, podiums, top 10, meilleur resultat, tir, rang ski moyen."""
+    res = [r for _, rows in season_races for r in rows if r["ibu"] == g["ibu"]]
+    ranks = [r["rank"] for r in res if r["rank"]]
+    hits = sum(r["shots"] - (r["misses_total"] or 0) for r in res)
+    shots = sum(r["shots"] for r in res)
+    ski = [r["ski"][1] for r in res if r["ski"]]
+    return {**g, "n": len(res), "wins": sum(1 for x in ranks if x == 1),
+            "podiums": sum(1 for x in ranks if x <= 3), "top10": sum(1 for x in ranks if x <= 10),
+            "best": min(ranks) if ranks else None,
+            "tir": round(100 * hits / shots) if shots else None,
+            "ski": round(mean(ski)) if ski else None}
+
+
 def duel(gen: list[dict], season_races: list[tuple[dict, list[dict]]], home: str = "FRA") -> dict | None:
     """Duel du mardi : leader du général contre le meilleur Francais (ou contre le 2e si le leader est francais)."""
     if len(gen) < 2:
@@ -564,19 +578,7 @@ def duel(gen: list[dict], season_races: list[tuple[dict, list[dict]]], home: str
         other = next((g for g in gen[1:] if g["nat"] == home), None)
         other, rule = (other, "fr") if other else (gen[1], "2e")
 
-    def card(g):
-        res = [r for _, rows in season_races for r in rows if r["ibu"] == g["ibu"]]
-        ranks = [r["rank"] for r in res if r["rank"]]
-        hits = sum(r["shots"] - (r["misses_total"] or 0) for r in res)
-        shots = sum(r["shots"] for r in res)
-        ski = [r["ski"][1] for r in res if r["ski"]]
-        return {**g, "n": len(res), "wins": sum(1 for x in ranks if x == 1),
-                "podiums": sum(1 for x in ranks if x <= 3), "top10": sum(1 for x in ranks if x <= 10),
-                "best": min(ranks) if ranks else None,
-                "tir": round(100 * hits / shots) if shots else None,
-                "ski": round(mean(ski)) if ski else None}
-
-    a, b = card(lead), card(other)
+    a, b = season_card(lead, season_races), season_card(other, season_races)
     h2h = [0, 0]
     for _, rows in season_races:
         ra = next((r["rank"] for r in rows if r["ibu"] == a["ibu"] and r["rank"]), None)
@@ -584,3 +586,26 @@ def duel(gen: list[dict], season_races: list[tuple[dict, list[dict]]], home: str
         if ra and rb:
             h2h[0 if ra < rb else 1] += 1
     return {"a": a, "b": b, "gap": a["score"] - b["score"], "h2h": h2h, "rule": rule}
+
+
+def age_on(birth: dt.date, day: dt.date) -> int:
+    return day.year - birth.year - ((day.month, day.day) < (birth.month, birth.day))
+
+
+def birthdays(races: list[tuple[dict, list[dict]]], births: dict[str, dt.date], start: dt.date, days: int,
+              home: str = "FRA") -> list[dict]:
+    """Anniversaires des Francais.es ayant couru au moins une course de la saison, entre start et start + days - 1."""
+    seen = {}
+    for m, rows in races:
+        for r in rows:
+            if r["nat"] == home and r["ibu"] in births:
+                seen.setdefault(r["ibu"], {**r, "cat": m["cat"], "birth": births[r["ibu"]]})
+    out = []
+    for a in seen.values():
+        b = a["birth"]
+        for k in range(days):
+            d = start + dt.timedelta(days=k)
+            if (b.month, b.day) == (d.month, d.day) or ((b.month, b.day) == (2, 29) and (d.month, d.day) == (2, 28)
+                                                       and not (d.year % 4 == 0 and (d.year % 100 or d.year % 400 == 0))):
+                out.append({**a, "day": d, "age": age_on(b, d) if (b.month, b.day) != (2, 29) else d.year - b.year})
+    return sorted(out, key=lambda x: (x["day"], x["name"]))

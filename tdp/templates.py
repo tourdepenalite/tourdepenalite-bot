@@ -734,3 +734,27 @@ def duel(cat: str, site: str, d: dict, idx: int, total: int) -> str:
 <div style='flex:1;background:var(--row);border-radius:24px;padding:22px 28px'><div style='font-size:22px;color:{GREY};font-weight:800;letter-spacing:.08em'>ÉCART AU GÉNÉRAL</div><div class='num' style='font-size:44px;font-weight:900;color:{O}'>{d['gap']} pts</div></div>
 <div style='flex:1;background:var(--row);border-radius:24px;padding:22px 28px'><div style='font-size:22px;color:{GREY};font-weight:800;letter-spacing:.08em'>FACE-À-FACE</div><div class='num' style='font-size:44px;font-weight:900'>{h0} – {h1}</div></div></div>"""
     return page(body, "Le duel", f"Après {apres_site(site)}", idx, total)
+
+
+def story_anniversaire(a: dict, card: dict, gen_rank: int | None, gen_score: int) -> str:
+    """Story du jour de l'anniversaire : prenom, age, 3 stats de saison."""
+    set_cat(a["cat"])
+    fem = a["cat"] == "SW"
+    o = ordinal_f if fem else ordinal
+
+    def stat(k, v):
+        return (f"<div style='background:var(--row);border-radius:24px;padding:26px 34px;margin-bottom:16px;display:flex;align-items:center'>"
+                f"<span style='flex:1;font-size:28px;color:{GREY};font-weight:800;letter-spacing:.06em'>{e(k)}</span>"
+                f"<span class='num' style='font-size:52px;font-weight:900;color:{O}'>{e(v)}</span></div>")
+    stats_html = (stat("MEILLEUR RÉSULTAT", o(card["best"]) if card["best"] else "-")
+                  + stat("TIR CETTE SAISON", f"{card['tir']} %" if card["tir"] is not None else "-")
+                  + stat("AU GÉNÉRAL", f"{o(gen_rank)} · {gen_score} pts" if gen_rank else "-"))
+    size = 120 if len(a["last"]) < 10 else 92
+    body = f"""<div style='position:absolute;top:300px;left:72px;right:72px'>{kicker('🎂 JOYEUX ANNIVERSAIRE')}
+<div style='font-size:150px;line-height:1;margin-top:40px'>🎉</div>
+<div style='font-size:46px;color:{GREY};font-weight:700;margin-top:30px'>{e(a['first'])}</div>
+<div class='fr' style='font-size:{size}px;font-weight:900;line-height:.95;text-transform:uppercase'>{e(a['last'])}</div>
+<div style='font-size:64px;font-weight:900;margin-top:26px'><span style='color:{O}'>{a['age']}</span> ans aujourd'hui {flag(HOME)}</div></div>
+<div style='position:absolute;top:1030px;left:72px;right:72px'>
+<div style='font-size:26px;color:{GREY};font-weight:800;letter-spacing:.08em;margin-bottom:16px'>SA SAISON EN CHIFFRES</div>{stats_html}</div>"""
+    return page(body, "Anniversaire", e(a["first"]), height=1920)
