@@ -19,7 +19,8 @@ def upload(path: pathlib.Path, key: str) -> str:
     key_ = (config.SUPABASE_SERVICE_KEY or "").strip().strip('"').strip("'")
     if key_.lower().startswith("bearer "):
         key_ = key_[7:].strip()
-    headers = {"apikey": key_, "Content-Type": "image/jpeg", "x-upsert": "true"}
+    ctype = {".mp4": "video/mp4", ".png": "image/png"}.get(path.suffix.lower(), "image/jpeg")
+    headers = {"apikey": key_, "Content-Type": ctype, "x-upsert": "true"}
     if not key_.startswith("sb_"):
         # Anciennes cles service_role (JWT) : elles passent aussi dans Authorization.
         # Les nouvelles cles sb_secret ne sont pas des JWT : Storage les refuse dans Authorization.
@@ -85,6 +86,15 @@ def publish_feed(urls: list[str], caption: str, alts: list[str] | None = None) -
     return _ig("POST", f"{config.IG_USER_ID}/media_publish", creation_id=cid)["id"]
 
 
+def publish_reel(url: str, caption: str, thumb_ms: int = 0) -> str:
+    """Reel (video MP4 sur URL publique). share_to_feed : visible dans le fil et l'onglet Reels."""
+    if config.DRY_RUN:
+        return "dry-run"
+    cid = _container(media_type="REELS", video_url=url, caption=caption, share_to_feed="true", thumb_offset=str(thumb_ms))
+    _wait(cid)
+    return _ig("POST", f"{config.IG_USER_ID}/media_publish", creation_id=cid)["id"]
+
+
 def publish_story(url: str) -> str:
     if config.DRY_RUN:
         return "dry-run"
@@ -121,8 +131,11 @@ def _tg(method: str, **payload) -> dict:
     return r.json()
 
 
-def send_for_approval(key: str, urls: list[str], caption: str, stories: list[str] | str | None = None):
+def send_for_approval(key: str, urls: list[str], caption: str, stories: list[str] | str | None = None,
+                      video: str | None = None):
     caption = caption or "(story seule)"
+    if video:
+        _tg("sendVideo", chat_id=config.TELEGRAM_CHAT_ID, video=video, supports_streaming=True)
     stories = [stories] if isinstance(stories, str) else (stories or [])
     imgs = list(urls) + list(stories)
     # Albums Telegram : 10 images maximum chacun.

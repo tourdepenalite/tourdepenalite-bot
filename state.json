@@ -124,6 +124,25 @@
     "18118074398137935"
    ],
    "published": "2026-11-27T15:25:47.122317+01:00"
+  },
+  "go:BT2627SWRLCP01SWIN": {
+   "kind": "depart",
+   "status": "published",
+   "urls": [],
+   "story_urls": [
+    "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/go/BT2627SWRLCP01SWIN/20261127151607_s_01.jpg"
+   ],
+   "caption": "",
+   "alts": [],
+   "created": "2026-11-27T16:16:05.164286+01:00",
+   "expires": "2026-11-27T16:45:00+01:00",
+   "files": [
+    "out/go_BT2627SWRLCP01SWIN/s_01.jpg"
+   ],
+   "ig_story_ids": [
+    "18102158246664458"
+   ],
+   "published": "2026-11-27T16:16:05.164286+01:00"
   }
  },
  "tg_offset": 969544676,
@@ -178,6 +197,10 @@
   "BT2627SWRLCP01SMIN": {
    "sig": "5a168f2fe548917cd4f6d246354b9526",
    "status": "Final | Final"
+  },
+  "BT2627SWRLCP01SWIN": {
+   "sig": "280dcfe4e99cd7946b92519355f6522e",
+   "status": "Running | Running"
   }
  }
 }

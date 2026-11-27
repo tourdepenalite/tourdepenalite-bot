@@ -125,6 +125,13 @@ class Client:
         except Exception:
             return []
 
+    def reports(self, race_id: str) -> list[dict]:
+        """Rapports PDF officiels de la course (liste de departs, resultats, analyse, donnees techniques...)."""
+        try:
+            return list(self.get("Reports", cache_s=3600, RaceId=race_id) or [])
+        except Exception:
+            return []
+
     def total_cup_id(self, season: str, cat: str, level: int = 1) -> str | None:
         for c in self.cups(season):
             if c.get("CatId") == cat and c.get("Level") == level and c.get("DisciplineId") == "TS":
