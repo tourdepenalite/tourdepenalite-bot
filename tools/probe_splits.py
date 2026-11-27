@@ -1,4 +1,4 @@
-"""Sonde 3 : donnees compactes de l'individuel hommes de Kontiolahti, pour le prototype de Reel."""
+"""Sonde 4 : distance officielle des tours (rapports PDF, champs de competition)."""
 import json
 import sys
 
@@ -6,19 +6,21 @@ sys.path.insert(0, ".")
 from tdp.ibu import Client  # noqa: E402
 
 c = Client()
-RID = "BT2627SWRLCP01SMIN"
-res = c.get("Results", RaceId=RID)
-types = [f"LAP{i}" for i in range(1, 6)] + [f"CRS{i}" for i in range(1, 6)] + [f"RNG{i}" for i in range(1, 5)]
-an = {}
-for t in types:
-    an[t] = {x["IBUId"]: x.get("Result") or x.get("TotalTime") for x in c.get("AnalyticResults", RaceId=RID, TypeId=t).get("Results") or []}
-rows = []
-for x in res["Results"]:
-    i = x.get("IBUId")
-    rows.append([i, x.get("GivenName"), x.get("FamilyName"), x.get("Nat"), x.get("Rank"), x.get("IRM"), x.get("TotalTime"),
-                 x.get("Shootings"), x.get("StartTime"), x.get("WC")] + [an[t].get(i) for t in types])
-comp = res.get("Competition") or {}
-print("DATA_BEGIN")
-print(json.dumps({"comp": {k: comp.get(k) for k in ("RaceId", "km", "catId", "DisciplineId", "StartTime", "PenaltySeconds", "NrShootings", "ShortDescription")},
-                  "cols": ["ibu", "first", "last", "nat", "rank", "irm", "total", "shootings", "start", "wc"] + types, "rows": rows}, ensure_ascii=False, separators=(",", ":")))
-print("DATA_END")
+for rid in ("BT2627SWRLCP01SMIN", "BT2526SWRLCP01SWSP", "BT2526SWRLCP01SWPU"):
+    print("\n=====", rid)
+    for m, p in (("Reports", {"RaceId": rid}), ("Reports", {"EventId": rid[:14]}), ("Competitions", {"EventId": rid[:14]})):
+        try:
+            d = c.get(m, **p)
+        except Exception as exc:  # noqa: BLE001
+            print(m, p, "ERR", str(exc)[:150]); continue
+        if m == "Competitions":
+            comp = next((x for x in d if x.get("RaceId") == rid), {})
+            print("COMP", json.dumps(comp, ensure_ascii=False)[:1500])
+        else:
+            items = d if isinstance(d, list) else d.get("Reports") or d.get("Items") or d
+            print(m, p, json.dumps(items, ensure_ascii=False)[:3000])
+    try:
+        a = c.get("AnalyticResults", RaceId=rid, TypeId="LAP1")
+        print("LAP1 meta", json.dumps({k: v for k, v in a.items() if k != "Results"}, ensure_ascii=False)[:800])
+    except Exception as exc:  # noqa: BLE001
+        print("LAP1 ERR", exc)
