@@ -120,6 +120,17 @@ def test_duel():
     d = stats.duel(gen, races)
     assert d["b"]["ibu"] == "B" and d["rule"] == "2e"
 
+def test_birthdays():
+    import datetime as dt
+    races = [({"cat": "SM"}, [{"ibu": "a", "nat": "FRA", "name": "A"}, {"ibu": "b", "nat": "NOR", "name": "B"}]),
+             ({"cat": "SW"}, [{"ibu": "c", "nat": "FRA", "name": "C"}])]
+    births = {"a": dt.date(1998, 12, 22), "b": dt.date(1999, 12, 22), "c": dt.date(2000, 2, 29), "x": dt.date(2001, 12, 22)}
+    r = stats.birthdays(races, births, dt.date(2026, 12, 22), 1)
+    assert [(x["ibu"], x["age"]) for x in r] == [("a", 28)]           # Francais ayant couru seulement
+    assert stats.birthdays(races, births, dt.date(2027, 2, 28), 1)[0]["ibu"] == "c"   # 29 fevrier fete le 28
+    assert len(stats.birthdays(races, births, dt.date(2026, 12, 16), 7)) == 1
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):
