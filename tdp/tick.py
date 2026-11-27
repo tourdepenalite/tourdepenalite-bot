@@ -135,6 +135,26 @@ class Season:
         return out
 
 
+    def finished_relays(self) -> list[tuple[dict, list[dict]]]:
+        """Relais termines de la saison (classement par nation, tours de penalite)."""
+        out = []
+        for ev in self.events:
+            s, _ = self.ev_dates(ev)
+            if not s or s > self.now.date():
+                continue
+            for m in self.comps(ev):
+                if not m["relay"] or m["start"] > self.now - dt.timedelta(hours=1):
+                    continue
+                old = (self.now - m["start"]).days >= 1
+                try:
+                    teams = stats.relay_results(self.c.results(m["race_id"], cache_s=7 * 86400 if old else 0))
+                except Exception:
+                    continue
+                if teams and teams[0]["rank"]:
+                    out.append((m, teams))
+        return out
+
+
 # ================================================================ production d'un post
 
 def produce(st: dict, key: str, kind: str, slides: list[str], caption: str, story: str | list[str] | None = None,
@@ -544,7 +564,10 @@ def p_bilan(st, S: Season, ev):
         facts.append(f"Nouveau leader : {lc['name']}.")
     fb = [f"🏁 {head}", f"Le bilan de l'étape de Coupe du monde de biathlon {templates.a_site_txt(site)}."] + facts[1:] + ["Votre moment fort du week-end ?"]
     cap = captions.generic("bilan de l'étape", "\n".join(facts), head, "\n".join(fb), [site, "bilan"])
-    produce(st, f"bilan:{ev['EventId']}", "bilan", templates.bilan(site, cap["headline"], figures, mv), cap["caption"])
+    relays = S.finished_relays()
+    pen = {"week": stats.penalty_counts(ev_races, [(m, t) for m, t in relays if m["event_id"] == ev["EventId"]]),
+           "season": stats.penalty_counts(S.finished_races(), relays)}
+    produce(st, f"bilan:{ev['EventId']}", "bilan", templates.bilan(site, cap["headline"], figures, mv, pen), cap["caption"])
 
 
 def p_bleus(st, S: Season, ev, cat: str):

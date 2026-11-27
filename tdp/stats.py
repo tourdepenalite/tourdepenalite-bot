@@ -332,6 +332,35 @@ def u23_standings(client: Client, rows: list[dict], first_race: dt.date, limit: 
     return out
 
 
+def penalty_counts(races: list[tuple[dict, list[dict]]], relays: list[tuple[dict, list[dict]]]) -> dict:
+    """Compteur de penalites. Sprint, poursuite, mass start, relais : tours de penalite.
+    Individuel / individuel court : pas de tour, des minutes ajoutees (PenaltySeconds)."""
+    nations, athletes = {}, {}
+
+    def nat(n):
+        return nations.setdefault(n, {"nat": n, "tours": 0, "minutes": 0.0})
+    for m, rows in races:
+        timed = m["disc"] in ("IN", "SI")
+        pen_s = m.get("penalty_s") or (60 if m["disc"] == "IN" else 45)
+        for r in rows:
+            k = r["misses_total"] or 0
+            if not k:
+                continue
+            a = athletes.setdefault(r["ibu"], {**r, "tours": 0, "minutes": 0.0, "fautes": 0})
+            a["fautes"] += k
+            if timed:
+                a["minutes"] += k * pen_s / 60
+                nat(r["nat"])["minutes"] += k * pen_s / 60
+            else:
+                a["tours"] += k
+                nat(r["nat"])["tours"] += k
+    for m, teams in relays:
+        for t in teams:
+            nat(t["nat"])["tours"] += t["penalties"]
+    return {"nations": sorted(nations.values(), key=lambda x: (-(x["tours"] + x["minutes"]), x["nat"])),
+            "athletes": sorted(athletes.values(), key=lambda x: (-x["fautes"], -x["tours"]))}
+
+
 def clean_sheets(rows: list[dict]) -> list[dict]:
     """Athletes classes sans aucune faute au tir."""
     return [r for r in rows if r["rank"] and r["shots"] and r["misses_total"] == 0]
