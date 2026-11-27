@@ -252,18 +252,48 @@ def p_programme(st, S: Season, ev):
         d = m["start"].date()
         days.setdefault(d, []).append((m["start"].strftime("%H:%M"), m["label"][0].upper() + m["label"][1:]))
     day_list = [(JOURS[d.weekday()], v) for d, v in sorted(days.items())]
-    enjeux, facts = [], [f"Étape : {site}, {len(metas)} courses sur {len(days)} jours."]
+    enjeux, facts = {}, [f"Étape : {site}, {len(metas)} courses sur {len(days)} jours."]
+    prev = S.previous_id()
     for cat in ("SM", "SW"):
+        fem = cat == "SW"
+        o = stats.ordinal_f if fem else stats.ordinal
         rows = stats.standings(S.c, S.id, cat)
-        if len(rows) >= 2 and rows[0]["score"] > 0:
-            a, b = rows[0], rows[1]
+        current = len(rows) >= 2 and rows[0]["score"] > 0
+        if not current:  # premiere etape : classement de la saison passee
+            rows = stats.standings(S.c, prev, cat)
+        if not rows:
+            continue
+        items = []
+        a = rows[0]
+        if current:
+            b = rows[1]
             d = a["score"] - b["score"]
-            enjeux.append((f"DOSSARD JAUNE · {config.CATEGORIES[cat].upper()}", f"{a['name']} ({a['nat']})", f"{d} pts d'avance sur {b['name']}" if d else f"À égalité avec {b['name']}"))
-            facts.append(f"Leader {config.CATEGORIES[cat]} : {a['name']} {a['nat']}, {a['score'] - b['score']} points devant {b['name']}.")
-            home = next((r for r in rows if r["nat"] == config.HOME_NAT), None)
-            if home:
-                facts.append(f"Meilleur(e) Français(e) {config.CATEGORIES[cat]} : {home['name']}, {home['rank']}e.")
-    slides = templates.programme(site, day_list, len(metas), len(days), enjeux[:3])
+            items.append(("DOSSARD JAUNE", a["name"], a["nat"],
+                          f"{d} pts d'avance sur {b['name']}" if d else f"À égalité avec {b['name']}"))
+            facts.append(f"Leader {config.CATEGORIES[cat]} : {a['name']} {a['nat']}, {d} points devant {b['name']}.")
+        else:
+            items.append(("TENANTE DU GROS GLOBE" if fem else "TENANT DU GROS GLOBE", a["name"], a["nat"],
+                          f"{'1re' if fem else '1er'} du général {prev[:2]}-{prev[2:]}, {a['score']} pts"))
+            facts.append(f"Vainqueur du général {config.CATEGORIES[cat]} la saison passée : {a['name']} {a['nat']}.")
+        home = next((r for r in rows if r["nat"] == config.HOME_NAT and r["ibu"] != a["ibu"]), None)
+        if home:
+            ctx = "au général" if current else f"du général {prev[:2]}-{prev[2:]}"
+            items.append(("LA FRANÇAISE À SUIVRE" if fem else "LE FRANÇAIS À SUIVRE", home["name"], home["nat"],
+                          f"{o(home['rank'])} {ctx}, {home['score']} pts"))
+            facts.append(f"{'Meilleure Française' if fem else 'Meilleur Français'} {ctx} : {home['name']}, {home['rank']}e.")
+        # En forme : le plus de points sur l'etape precedente (hors athletes deja affiches)
+        prev_races = [(m, r) for m, r in S.finished_races() if m["cat"] == cat and m["event_id"] != ev["EventId"]]
+        if prev_races:
+            last_ev = prev_races[-1][0]["event_id"]
+            last = [(m, r) for m, r in prev_races if m["event_id"] == last_ev]
+            f = stats.in_form(last, {a["ibu"]} | ({home["ibu"]} if home else set()))
+            if f:
+                where = templates.a_site_txt(last[0][0]["site"])
+                pod = f", {f['podiums']} podium{'s' if f['podiums'] > 1 else ''}" if f["podiums"] else ""
+                items.append(("EN FORME", f["name"], f["nat"], f"{f['pts']} pts {where}{pod}"))
+                facts.append(f"En forme : {f['name']} ({f['nat']}), {f['pts']} points {where}.")
+        enjeux[cat] = items
+    slides = templates.programme(site, day_list, len(metas), len(days), enjeux)
     fb = [f"📅 Le programme de la Coupe du monde de biathlon {templates.a_site_txt(site)}",
           f"{len(metas)} courses en {len(days)} jours, heures françaises dans le carrousel 👉",
           "Enregistrez le post pour ne rien manquer. Quelle course attendez-vous le plus ?"]

@@ -83,6 +83,14 @@ def test_upcoming_ignores_training_days():
     assert tick.Season(C(), at("2026-11-30T09:05")).just_ended()["EventId"] == "A"
 
 
+def test_in_form():
+    r = lambda ibu, rank, wc=None: {"ibu": ibu, "rank": rank, "wc": wc, "name": ibu, "nat": "NOR"}
+    races = [({}, [r("a", 1), r("b", 2), r("c", 3)]), ({}, [r("b", 1), r("a", 5), r("c", 2)])]
+    assert stats.in_form(races, set())["ibu"] == "b"          # 75 + 90 = 165 > 90 + 45
+    assert stats.in_form(races, {"b"})["ibu"] == "a"          # a et c a 135 pts : a a le meilleur resultat (1er)
+    assert stats.in_form([({}, [r("x", 1, wc=50)])], set())["pts"] == 50   # points IBU prioritaires
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):

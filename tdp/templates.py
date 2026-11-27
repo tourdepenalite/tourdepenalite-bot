@@ -331,7 +331,7 @@ def pre_race(meta: dict, headline: str, lines: list[tuple[str, str]], favs: list
 
 # ================================================================ MERCREDI
 
-def programme(site: str, days: list[tuple[str, list[tuple[str, str]]]], n_races: int, n_days: int, enjeux: list[tuple[str, str, str]]) -> list[str]:
+def programme(site: str, days: list[tuple[str, list[tuple[str, str]]]], n_races: int, n_days: int, enjeux: dict) -> list[str]:
     set_cat(None)
     rows = ""
     for day, races in days:
@@ -343,9 +343,24 @@ def programme(site: str, days: list[tuple[str, list[tuple[str, str]]]], n_races:
 <div style='position:absolute;top:500px;left:72px;right:72px'>{rows}<div style='font-size:24px;color:{MUTED};margin-top:16px'>Heures françaises</div></div>"""
     slides = [page(s1, site, "Étape de Coupe du monde", 1, total)]
     if enjeux:
-        cards = "".join(f"<div style='background:{ROW};border-radius:18px;padding:30px 32px;margin-bottom:18px'><div style='font-size:24px;color:{GREY};font-weight:800;letter-spacing:.08em'>{e(k)}</div><div style='font-size:46px;font-weight:900;margin-top:6px'>{e(v)}</div><div style='font-size:28px;color:var(--soft);margin-top:6px'>{e(sub)}</div></div>" for k, v, sub in enjeux)
-        s2 = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker('LES ENJEUX')}{title("Ce qu'il faut suivre ce week-end", 64)}</div>
-<div style='position:absolute;top:420px;left:72px;right:72px'>{cards}</div>"""
+        # enjeux : {"SM": [(cle, nom, nat, detail), ...], "SW": [...]} -> deux colonnes Hommes / Femmes
+        cols = ""
+        for cat in ("SM", "SW"):
+            items = enjeux.get(cat) or []
+            if not items:
+                continue
+            col = config.FLASH_BY_CAT.get(cat, "var(--flash)") if config.THEME != "nuit" else "var(--flash)"
+            cards = "".join(
+                f"<div style='background:{FR_BG if n == HOME else ROW};border-radius:18px;padding:22px 24px;margin-bottom:14px;min-height:190px'>"
+                f"<div style='font-size:21px;color:{col};font-weight:800;letter-spacing:.08em'>{e(k)}</div>"
+                f"<div style='display:flex;align-items:center;gap:12px;margin-top:12px'>{nat(n, 34)}"
+                f"<div class='{'fr' if n == HOME else ''}' style='font-size:36px;font-weight:900;line-height:1.05'>{e(v)}</div></div>"
+                f"<div style='font-size:24px;color:var(--soft);margin-top:12px;line-height:1.3'>{e(sub)}</div></div>"
+                for k, v, n, sub in items[:3])
+            cols += (f"<div style='flex:1;min-width:0'><div style='font-size:30px;font-weight:900;color:{col};margin-bottom:14px'>"
+                     f"{'Femmes' if cat == 'SW' else 'Hommes'}</div>{cards}</div>")
+        s2 = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker('LES ENJEUX')}<div class='h' style='font-size:58px;white-space:nowrap'>Ce qu'il faut suivre ce week-end</div></div>
+<div style='position:absolute;top:350px;left:72px;right:72px;display:flex;gap:22px'>{cols}</div>"""
         slides.append(page(s2, site, "Étape de Coupe du monde", 2, total))
     return slides
 
