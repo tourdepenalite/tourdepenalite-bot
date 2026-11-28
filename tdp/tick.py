@@ -523,7 +523,10 @@ def p_post_race(st, S: Season, m: dict, payload: dict):
     complete = analysis_coverage(fin) >= 0.8
     w = st["watch"].setdefault(m["race_id"], {})
     w.setdefault("ready_at", NOW.isoformat())
-    if not complete and NOW - dt.datetime.fromisoformat(w["ready_at"]) < dt.timedelta(minutes=30):
+    # Avec validation : 30 min, le post sera refait s'il est encore en attente. Sans validation : jusqu'a 2 h,
+    # car un post publie ne peut plus etre corrige.
+    wait = dt.timedelta(minutes=30) if config.REQUIRE_APPROVAL else dt.timedelta(hours=2)
+    if not complete and NOW - dt.datetime.fromisoformat(w["ready_at"]) < wait:
         raise NotReady("temps de ski et de pas de tir pas encore publies")
     start_ranks = None
     if m["disc"] == "PU":
