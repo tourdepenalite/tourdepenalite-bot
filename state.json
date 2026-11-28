@@ -341,6 +341,10 @@
    "sig": "8b9c0114b736b1eb5de5b530a6856b73",
    "status": "Unofficial | Unofficial",
    "ready_at": "2026-11-27T18:21:45.936554+01:00"
+  },
+  "BT2627SWRLCP01MXSR": {
+   "sig": "b44fd29d3fa6ae6c66058d3fde71e874",
+   "status": "Running | Running"
   }
  }
 }
