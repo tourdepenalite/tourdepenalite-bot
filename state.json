@@ -45,7 +45,7 @@
   },
   "post:BT2627SWRLCP01SMIN": {
    "kind": "apres_course",
-   "status": "pending",
+   "status": "expired",
    "urls": [
     "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SMIN/20261127124407_s_01.jpg",
     "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SMIN/20261127124407_s_02.jpg",
