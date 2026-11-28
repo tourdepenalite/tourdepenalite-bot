@@ -45,7 +45,7 @@
   },
   "post:BT2627SWRLCP01SMIN": {
    "kind": "apres_course",
-   "status": "pending",
+   "status": "expired",
    "urls": [
     "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SMIN/20261127124407_s_01.jpg",
     "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SMIN/20261127124407_s_02.jpg",
@@ -146,7 +146,7 @@
   },
   "post:BT2627SWRLCP01SWIN": {
    "kind": "apres_course",
-   "status": "pending",
+   "status": "published",
    "urls": [
     "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SWIN/20261127172202_s_01.jpg",
     "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/post/BT2627SWRLCP01SWIN/20261127172202_s_02.jpg",
@@ -192,14 +192,20 @@
     "out/post_BT2627SWRLCP01SWIN/s_11.jpg",
     "out/post_BT2627SWRLCP01SWIN/s_12.jpg"
    ],
-   "complete": true
+   "complete": true,
+   "ig_id": "18184089100434016",
+   "ig_story_ids": [
+    "18034775453856764",
+    "17968907910228940"
+   ],
+   "published": "2026-11-27T21:05:57.220766+01:00"
   },
   "redo:BT2627SWRLCP01SWIN:2026-11-27T18:05:48.961507+01:00": {
    "status": "skipped"
   },
   "reel:BT2627SWRLCP01SWIN": {
    "kind": "reel",
-   "status": "pending",
+   "status": "published",
    "urls": [],
    "story_urls": [],
    "video_url": "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/reel/BT2627SWRLCP01SWIN/20261127172303_reel.mp4",
@@ -209,10 +215,13 @@
    "expires": "2026-11-28T14:21:45.936554+01:00",
    "files": [
     "out/reel_BT2627SWRLCP01SWIN/reel.mp4"
-   ]
+   ],
+   "ig_id": "18123757747963614",
+   "ig_story_ids": [],
+   "published": "2026-11-27T21:05:57.220766+01:00"
   }
  },
- "tg_offset": 969544676,
+ "tg_offset": 969544682,
  "snapshots": {
   "BT2627SWRLCP01": {
    "SM": {
