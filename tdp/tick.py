@@ -388,7 +388,51 @@ KEY_POINT = {
     "MS": "Le point clé : le dernier tir debout, souvent décisif.",
     "IN": "Le point clé : chaque faute coûte 1 minute.",
     "SI": "Le point clé : chaque faute coûte 45 secondes.",
+    "RL": "Le point clé : les balles de pioche. Une cible encore debout après 8 balles, c'est un tour de pénalité.",
+    "MR": "Le point clé : les balles de pioche. Une cible encore debout après 8 balles, c'est un tour de pénalité.",
+    "SR": "Le point clé : des relais très courts, chaque seconde au pas de tir compte.",
 }
+
+RELAY_LINES = {
+    "RL": [("Format", "4 relayeurs · 2 tirs chacun"), ("Pénalité", "3 balles de pioche, puis 1 tour de 150 m")],
+    "MR": [("Format", "2 femmes + 2 hommes · 2 tirs chacun"), ("Pénalité", "3 balles de pioche, puis 1 tour de 150 m")],
+    "SR": [("Format", "1 femme + 1 homme · 2 relais chacun"), ("Pénalité", "3 balles de pioche, puis 1 tour de 75 m")],
+}
+
+
+def p_pre_race_relay(st, S: Season, m: dict, ev):
+    """Avant course d'un relais (2 h avant) : format, meteo, nations favorites, composition de la France si publiee."""
+    lines = list(RELAY_LINES.get(m["disc"], RELAY_LINES["RL"]))
+    if w := weather(m, S.c):
+        lines.append(("Météo", w))
+    gen = {cat: stats.standings(S.c, S.id, cat) for cat in ("SW", "SM")}
+    prefix = ""
+    if not any(g and g[0]["score"] for g in gen.values()):
+        prev = S.previous_id()
+        gen = {cat: stats.standings(S.c, prev, cat) for cat in ("SW", "SM")}
+        prefix = f"saison {prev[:2]}-{prev[2:]}"
+    favs = stats.relay_favorites(m, S.finished_relays(), gen, prefix)
+    if not favs:
+        raise NotReady("pas de donnees pour les favoris du relais")
+    fra = next((t for t in stats.relay_lineups(S.c.results(m["race_id"])) if t["nat"] == config.HOME_NAT and t["legs"]), None)
+    key = KEY_POINT.get(m["disc"], "")
+    if fra:
+        lasts = ", ".join(n.split(" ")[-1] for n in fra["legs"])
+        key = f"Pour la France : {lasts}."
+        lines.append(("France", lasts))
+    feed, story = templates.pre_race(m, m["label"], lines, favs, key, fav_title="LES ÉQUIPES FAVORITES",
+                                     calc_note="Calcul : relais de la saison, sinon points au général")
+    facts = [f"{m['label']} à {m['site']}, départ {m['start'].strftime('%H:%M')}."]
+    facts += [f"Équipe favorite : {f['name']}, {f['why']}." for f in favs]
+    if fra:
+        facts.append("Composition de la France : " + ", ".join(fra["legs"]) + ".")
+    if prefix:
+        facts.append(f"Favoris calculés sur la {prefix}, pas sur cette saison.")
+    fb = [f"⏱️ {m['label']} {templates.a_site_txt(m['site'])}, départ à {m['start'].strftime('%H:%M')}",
+          "Les équipes favorites : " + ", ".join(f["name"] for f in favs) + ".",
+          "Quel podium pour ce relais ? 👇"]
+    cap = captions.generic("avant course d'un relais", "\n".join(facts), m["label"], "\n".join(fb), [m["site"]])
+    produce(st, f"pre:{m['race_id']}", "avant_course", [feed], cap["caption"], story, expires=m["start"])
 
 
 def p_pre_race(st, S: Season, m: dict, ev):
@@ -435,9 +479,13 @@ def p_grille(st, S: Season, m: dict):
         teams = stats.relay_lineups(payload)
         if not teams:
             raise NotReady("compositions des relais pas encore publiees")
-        fra = [t for t in teams if t["nat"] == config.HOME_NAT]
-        others = [t for t in teams if t["nat"] != config.HOME_NAT][: 3 - len(fra)]
-        story = templates.story_relais(m, fra + others)
+        teams = sorted(teams, key=lambda t: t["bib"] or 999)
+        show = teams[:2]
+        if any(t["nat"] == config.HOME_NAT for t in show):
+            show = teams[:3]
+        else:
+            show += [t for t in teams if t["nat"] == config.HOME_NAT][:1]
+        story = templates.story_relais(m, show)
     else:
         grid = stats.start_grid(payload)
         if len(grid) < 3:
@@ -481,7 +529,11 @@ def p_depart(st, S: Season, m: dict):
             sprint = next(((sm, r) for sm, r in season_rows if sm["event_id"] == m["event_id"] and sm["disc"] == "SP" and sm["cat"] == m["cat"]), None)
             start_list = [r for r in sprint[1] if r["rank"]] if sprint else None
         favs = stats.favorites(m, season_rows, fallback, start_list)
-    produce(st, f"go:{m['race_id']}", "depart", [], "", templates.story_depart(m, favs),
+    fmt, team = None, None
+    if m["relay"]:
+        fmt = [v for _, v in RELAY_LINES.get(m["disc"], RELAY_LINES["RL"])]
+        team = next((t for t in stats.relay_lineups(S.c.results(m["race_id"])) if t["nat"] == config.HOME_NAT), None)
+    produce(st, f"go:{m['race_id']}", "depart", [], "", templates.story_depart(m, favs, fmt, team),
             expires=m["start"] + dt.timedelta(minutes=30), auto=True)
 
 
@@ -849,8 +901,9 @@ def _run(st: dict, now: dt.datetime):
                 todo.append((f"grid:{m['race_id']}", lambda m=m: p_grille(st, S, m)))
             if -15 <= delta <= 2 and now >= m["start"] - dt.timedelta(minutes=2):
                 todo.append((f"go:{m['race_id']}", lambda m=m: p_depart(st, S, m)))
-            if not m["relay"] and 30 <= delta <= config.SCHEDULE["pre_race_minutes"]:
-                todo.append((f"pre:{m['race_id']}", lambda m=m, ev=ev: p_pre_race(st, S, m, ev)))
+            if 30 <= delta <= config.SCHEDULE["pre_race_minutes"]:
+                fn = p_pre_race_relay if m["relay"] else p_pre_race
+                todo.append((f"pre:{m['race_id']}", lambda m=m, ev=ev, fn=fn: fn(st, S, m, ev)))
             if -12 * 60 <= delta < -20 and not finished(st, f"post:{m['race_id']}"):
                 payload = S.c.results(m["race_id"])
                 ok = stats.is_official(payload, m["_comp"])
