@@ -1,25 +1,30 @@
-"""Sonde 7 : etat de Telegram (lecture seule, ne confirme aucune mise a jour)."""
+"""Sonde 8 : donnees d'un relais (resultats par relayeur, temps par tour, tirs, pioches)."""
 import json
-import os
+import sys
 
-import requests
+sys.path.insert(0, ".")
+from tdp.ibu import Client  # noqa: E402
 
-T = os.environ["TELEGRAM_BOT_TOKEN"]
-CHAT = os.environ.get("TELEGRAM_CHAT_ID")
-api = lambda m, **p: requests.post(f"https://api.telegram.org/bot{T}/{m}", json=p, timeout=30).json()
-me = api("getMe")
-print("getMe ok:", me.get("ok"), "bot:", (me.get("result") or {}).get("username"))
-wh = api("getWebhookInfo")
-print("webhook:", json.dumps({k: v for k, v in (wh.get("result") or {}).items() if k != "url"}), "url set:", bool((wh.get("result") or {}).get("url")))
-st = json.load(open("state.json"))
-off = st.get("tg_offset", 0)
-up = api("getUpdates", offset=off, timeout=0)
-print("getUpdates ok:", up.get("ok"), up.get("description"), "pending:", len(up.get("result") or []))
-for u in (up.get("result") or [])[:20]:
-    cq = u.get("callback_query")
-    if cq:
-        print(" callback", u["update_id"], cq.get("data"), "chat match:", str(cq.get("message", {}).get("chat", {}).get("id")) == str(CHAT))
-    else:
-        print(" other", u["update_id"], list(u.keys()))
-chat = api("getChat", chat_id=CHAT)
-print("getChat ok:", chat.get("ok"), chat.get("description"), (chat.get("result") or {}).get("type"))
+c = Client()
+rid = None
+for season in ("2526",):
+    for ev in c.events(season):
+        for comp in c.competitions(ev["EventId"]):
+            if comp.get("DisciplineId") == "RL" and comp.get("StatusText") == "Final":
+                rid = comp["RaceId"]; break
+        if rid: break
+print("RACE", rid)
+res = c.get("Results", RaceId=rid)
+rows = res["Results"]
+team = next(r for r in rows if r.get("IsTeam"))
+legs = [r for r in rows if not r.get("IsTeam") and r.get("Nat") == team.get("Nat")]
+print("TEAM", json.dumps(team, ensure_ascii=False)[:1500])
+for l in legs[:4]:
+    print("LEG", json.dumps(l, ensure_ascii=False)[:1200])
+for t in ["LAP1", "LAP2", "LAP3", "LAP12", "CRS1", "RNG1", "STTM", "CRST", "RNGT", "FINN"]:
+    try:
+        a = c.get("AnalyticResults", RaceId=rid, TypeId=t)
+    except Exception as exc:  # noqa: BLE001
+        print(t, "ERR", exc); continue
+    rr = a.get("Results") or []
+    print(t, len(rr), json.dumps(rr[:2], ensure_ascii=False)[:700])
