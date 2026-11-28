@@ -219,6 +219,31 @@
    "ig_id": "18123757747963614",
    "ig_story_ids": [],
    "published": "2026-11-27T21:05:57.220766+01:00"
+  },
+  "pre:BT2627SWRLCP01MXSR": {
+   "kind": "avant_course",
+   "status": "published",
+   "urls": [
+    "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/pre/BT2627SWRLCP01MXSR/20261128104648_s_01.jpg"
+   ],
+   "story_urls": [
+    "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/pre/BT2627SWRLCP01MXSR/20261128104648_s_02.jpg"
+   ],
+   "caption": "⏱️ Relais mixte simple à Kontiolahti, départ à 13:10\nLes équipes favorites : Allemagne, Norvège, Suède.\nQuel podium pour ce relais ? 👇\n\n#biathlon #kontiolahti #biathlonfrance #coupedumondebiathlon",
+   "alts": [
+    "Tour de pénalité, statistiques de biathlon : ⏱️ Relais mixte simple à Kontiolahti, départ à 13:10 (visuel 1/1)"
+   ],
+   "created": "2026-11-28T11:46:35.268266+01:00",
+   "expires": "2026-11-28T13:10:00+01:00",
+   "files": [
+    "out/pre_BT2627SWRLCP01MXSR/s_01.jpg",
+    "out/pre_BT2627SWRLCP01MXSR/s_02.jpg"
+   ],
+   "ig_id": "17915347614664980",
+   "ig_story_ids": [
+    "18004885017013159"
+   ],
+   "published": "2026-11-28T11:46:35.268266+01:00"
   }
  },
  "tg_offset": 969544682,
