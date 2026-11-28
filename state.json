@@ -263,6 +263,25 @@
     "18137841550708847"
    ],
    "published": "2026-11-28T12:01:34.073462+01:00"
+  },
+  "go:BT2627SWRLCP01MXSR": {
+   "kind": "depart",
+   "status": "published",
+   "urls": [],
+   "story_urls": [
+    "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/go/BT2627SWRLCP01MXSR/20261128121109_s_01.jpg"
+   ],
+   "caption": "",
+   "alts": [],
+   "created": "2026-11-28T13:11:06.471425+01:00",
+   "expires": "2026-11-28T13:40:00+01:00",
+   "files": [
+    "out/go_BT2627SWRLCP01MXSR/s_01.jpg"
+   ],
+   "ig_story_ids": [
+    "18136825276863479"
+   ],
+   "published": "2026-11-28T13:11:06.471425+01:00"
   }
  },
  "tg_offset": 969544682,
