@@ -658,3 +658,41 @@ def pursuit_moves(rows: list[dict], start_ranks: dict[str, int], home: str = "FR
             "down": down if down["gain"] < 0 else None,
             "fr": fr if fr and fr["gain"] >= min_fr and fr["ibu"] != up["ibu"] else None}
 
+
+def relay_favorites(meta: dict, relays: list[tuple[dict, list[dict]]], gen: dict[str, list[dict]],
+                    prefix: str = "", n: int = 3) -> list[dict]:
+    """Nations favorites d'un relais. Relais de la saison du meme format (rang moyen sur les 3 derniers) ;
+    a defaut, force au general : points des meilleurs de chaque nation (4 en relais, 2+2 en mixte, 1+1 en simple mixte)."""
+    from .templates import NAT_FR
+    same = [(m, t) for m, t in relays if m["disc"] == meta["disc"] and m["cat"] == meta["cat"]][-3:]
+    if same:
+        acc = {}
+        for m, teams in same:
+            for t in teams:
+                if t["rank"]:
+                    a = acc.setdefault(t["nat"], {"ranks": [], "wins": 0})
+                    a["ranks"].append(t["rank"])
+                    a["wins"] += t["rank"] == 1
+        best = sorted(acc.items(), key=lambda x: (sum(x[1]["ranks"]) / len(x[1]["ranks"]) + 2 * (len(same) - len(x[1]["ranks"])), -x[1]["wins"]))
+        out = []
+        for nat, a in best[:n]:
+            k = len(a["ranks"])
+            why = (f"{a['wins']} victoire{'s' if a['wins'] > 1 else ''} sur {len(same)} relais" if a["wins"]
+                   else f"{'meilleur résultat : ' + ordinal(min(a['ranks'])) if k else ''} sur {len(same)} relais").strip()
+            out.append({"name": NAT_FR.get(nat, nat), "nat": nat, "why": why})
+        return out
+    per_cat = {"RL": {meta["cat"]: 4}, "MR": {"SW": 2, "SM": 2}, "SR": {"SW": 1, "SM": 1}}.get(meta["disc"], {meta["cat"]: 4})
+    score = {}
+    for cat, k in per_cat.items():
+        by_nat = {}
+        for g in gen.get(cat) or []:
+            by_nat.setdefault(g["nat"], []).append(g["score"])
+        for nat, pts in by_nat.items():
+            if len(pts) >= k:
+                score[nat] = score.get(nat, 0) + sum(sorted(pts, reverse=True)[:k])
+    nb = sum(per_cat.values())
+    who = {"RL": "meilleures" if meta["cat"] == "SW" else "meilleurs"}.get(meta["disc"], "meilleurs")
+    best = sorted(score.items(), key=lambda x: -x[1])[:n]
+    return [{"name": NAT_FR.get(nat, nat), "nat": nat,
+             "why": f"{nb} {who} au général{(' ' + prefix) if prefix else ''} : {pts} pts"} for nat, pts in best]
+

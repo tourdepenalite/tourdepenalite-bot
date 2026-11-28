@@ -314,8 +314,10 @@ def relay_image(meta: dict, teams: list[dict], headline: str) -> list[str]:
 
 # ================================================================ AVANT COURSE
 
-def pre_race(meta: dict, headline: str, lines: list[tuple[str, str]], favs: list[dict], key_point: str) -> tuple[str, str]:
+def pre_race(meta: dict, headline: str, lines: list[tuple[str, str]], favs: list[dict], key_point: str,
+             fav_title: str | None = None, calc_note: str = "Calcul : résultats et tir sur les dernières courses") -> tuple[str, str]:
     set_cat(meta.get("cat"))
+    fav_title = fav_title or ("NOS FAVORITES" if meta["cat"] == "SW" else "NOS FAVORIS")
     def line(k, v):
         return f"<div style='display:flex;justify-content:space-between;padding:22px 0;border-top:1px solid var(--line);font-size:32px'><span style='color:{GREY};font-weight:600'>{e(k)}</span><span style='font-weight:800'>{e(v)}</span></div>"
     fav = ""
@@ -324,8 +326,8 @@ def pre_race(meta: dict, headline: str, lines: list[tuple[str, str]], favs: list
     hhmm = meta["start"].strftime("%H:%M") if meta["start"] else ""
     feed = f"""<div style='position:absolute;top:190px;left:72px;right:72px'>{kicker(f"AUJOURD'HUI · {hhmm}")}{title(meta['label'], 72 if len(meta['label'])<26 else 58)}</div>
 <div style='position:absolute;top:400px;left:72px;right:72px'>{''.join(line(k, v) for k, v in lines)}
-<div style='margin-top:36px'>{kicker('NOS FAVORIS' if meta['cat']!='SW' else 'NOS FAVORITES')}{fav}</div>
-<div style='font-size:22px;color:{MUTED};margin-top:6px'>Calcul : résultats et tir sur les dernières courses</div></div>"""
+<div style='margin-top:36px'>{kicker(fav_title)}{fav}</div>
+<div style='font-size:22px;color:{MUTED};margin-top:6px'>{e(calc_note)}</div></div>"""
     # Story : pas de faux sondage (l'API ne permet pas les stickers interactifs) ;
     # favoris et infos cles, puis invitation a repondre a la story (message prive).
     fav_rows = "".join(
@@ -339,7 +341,7 @@ def pre_race(meta: dict, headline: str, lines: list[tuple[str, str]], favs: list
 <div style='font-size:96px;font-weight:900;line-height:1;margin-top:20px'>{e(meta['label'])}</div>
 <div style='font-size:44px;color:{GREY};font-weight:700;margin-top:20px'>{hhmm} · {e(meta['site'])}</div>{meteo_html}</div>
 <div style='position:absolute;top:760px;left:72px;right:72px;background:var(--row);border-radius:28px;padding:36px 40px 20px'>
-<div style='font-size:30px;color:{O};font-weight:800;letter-spacing:.08em;margin-bottom:6px'>{'NOS FAVORITES' if meta['cat']=='SW' else 'NOS FAVORIS'}</div>{fav_rows}</div>
+<div style='font-size:30px;color:{O};font-weight:800;letter-spacing:.08em;margin-bottom:6px'>{e(fav_title)}</div>{fav_rows}</div>
 <div style='position:absolute;top:1320px;left:72px;right:72px;font-size:34px;font-weight:700;color:var(--soft);line-height:1.4'>{e(key_point)}</div>
 <div style='position:absolute;top:1460px;left:72px;right:72px;text-align:center;font-size:40px;font-weight:900;color:var(--ink)'>
 Ton pronostic ? Réponds à cette story 💬</div>"""
@@ -482,10 +484,20 @@ def bleus(cat: str, site: str, athletes: list[dict]) -> list[str]:
 # ================================================================ STORIES (1080x1920)
 # Zone sure : Instagram couvre environ 250 px en haut et 320 px en bas.
 
-def story_depart(meta: dict, favs: list[dict]) -> str:
+def story_depart(meta: dict, favs: list[dict], fmt: list[str] | None = None, team: dict | None = None) -> str:
+    """Story « C'est parti ! ». Relais : format du relais et composition de l'equipe de France."""
     set_cat(meta.get("cat"))
     hhmm = meta["start"].strftime("%H:%M") if meta["start"] else ""
     fav = ""
+    fmt_html = "".join(f"<div style='font-size:32px;color:var(--soft);font-weight:700;margin-top:10px'>{e(x)}</div>" for x in (fmt or []))
+    if team and team.get("legs"):
+        legs = "".join(f"<div style='display:flex;gap:20px;font-size:38px;font-weight:800;padding:7px 0'>"
+                       f"<span style='width:44px;color:{O};font-weight:900'>{i + 1}</span><span>{e(n)}</span></div>"
+                       for i, n in enumerate(team["legs"]))
+        fav = (f"<div style='position:absolute;top:1060px;left:72px;right:72px;background:{FR_BG};border-radius:28px;padding:30px 40px'>"
+               f"<div style='display:flex;align-items:center;gap:16px;margin-bottom:8px'>{nat(HOME, 40)}"
+               f"<span class='fr' style='font-size:30px;font-weight:800;letter-spacing:.08em'>L'ÉQUIPE DE FRANCE</span>"
+               f"<span style='margin-left:auto;font-size:24px;color:{GREY};font-weight:800'>DOSSARD {team.get('bib') or '-'}</span></div>{legs}</div>")
     if favs:
         names = "".join(f"<div style='display:flex;align-items:center;gap:16px;font-size:38px;font-weight:800;margin-top:14px'>"
                         f"{nat(r['nat'], 40)}<span class='{'fr' if r['nat'] == HOME else ''}'>{e(r['name'])}</span></div>" for r in favs[:3])
@@ -494,7 +506,7 @@ def story_depart(meta: dict, favs: list[dict]) -> str:
     body = f"""<div style='position:absolute;top:330px;left:72px;right:72px'>{kicker(f'{hhmm} · EN DIRECT')}
 <div style='font-size:150px;font-weight:900;line-height:.95;margin-top:26px;color:{O}'>C'est<br>parti !</div>
 <div style='font-size:62px;font-weight:900;line-height:1.05;margin-top:40px'>{e(meta['label'])}</div>
-<div style='font-size:40px;color:{GREY};font-weight:700;margin-top:16px'>{e(meta['site'])}</div></div>{fav}
+<div style='font-size:40px;color:{GREY};font-weight:700;margin-top:16px'>{e(meta['site'])}</div>{fmt_html}</div>{fav}
 <div style='position:absolute;top:1480px;left:72px;right:72px;text-align:center;font-size:36px;font-weight:800;color:var(--soft)'>
 Résultats et stats juste après l'arrivée 🎯</div>"""
     return page(body, meta["site"], "Départ", height=1920)
