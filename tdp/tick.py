@@ -818,6 +818,24 @@ def birthdays_todo(st, S: Season, now: dt.datetime) -> list:
 def p_reel(st, S: Season, m: dict):
     """Reel « Revivre la course » : la course rejouee tir par tir (courses individuelles)."""
     from . import reel
+    if m["relay"]:
+        data = reel.build_relay(m, reel.load_relay(S.c, m["race_id"]))
+        if not data:
+            raise NotReady("temps par relayeur pas encore publies")
+        w = data["podium"][0]
+        facts = [f"Vainqueur : {w['last']}, {w['time']}, {w['shots']}."]
+        for k, stt in enumerate(data["standings"]):
+            facts.append(f"Après {data['banners'][k].lower()} : 1. {stt[0]['last']}, 2. {stt[1]['last']}, 3. {stt[2]['last']}.")
+        if data["best_fr"]:
+            facts.append(f"France : {data['best_fr']['rank']}.")
+        fb = [f"⏪ Revivez {le(m['label'])} {templates.a_site_txt(m['site'])}, tir par tir",
+              f"Victoire : {w['last']} ({w['shots']}).", "Quel relais a fait la différence ? 👇"]
+        cap = captions.generic("Reel qui rejoue le relais tir par tir", "\n".join(facts), "Revivre le relais",
+                               "\n".join(fb), [m["site"]])
+        path = OUT / f"reel:{m['race_id']}".replace(":", "_") / "reel.mp4"
+        reel.record(data, path, audio=reel.pick_music(m["race_id"], reel.duration(data)))
+        produce_video(st, f"reel:{m['race_id']}", "reel", path, cap["caption"], thumb_ms=1600)
+        return
     nr = len(config.DISCIPLINES.get(m["disc"], {}).get("stages") or [])
     course = reel.course_info(S.c, m["race_id"])
     data = reel.build({**m, "km": m["_comp"].get("km"), "course": course}, reel.load_rows(S.c, m["race_id"], nr))
@@ -919,7 +937,7 @@ def _run(st: dict, now: dt.datetime):
             if (not m["relay"] and -12 * 60 <= delta < -20 and post.get("status") == "pending"
                     and post.get("kind") == "apres_course" and not post.get("complete")):
                 todo.append((f"redo:{m['race_id']}:{post.get('created', '')}", lambda m=m: p_redo(st, S, m)))
-            if (config.REEL and not m["relay"] and -12 * 60 <= delta < -20 and post.get("status") in ("pending", "published")
+            if (config.REEL and m["disc"] != "SR" and -12 * 60 <= delta < -20 and post.get("status") in ("pending", "published")
                     and not finished(st, f"reel:{m['race_id']}")):
                 todo.append((f"reel:{m['race_id']}", lambda m=m: p_reel(st, S, m)))
 
