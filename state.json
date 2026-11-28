@@ -244,6 +244,25 @@
     "18004885017013159"
    ],
    "published": "2026-11-28T11:46:35.268266+01:00"
+  },
+  "grid:BT2627SWRLCP01MXSR": {
+   "kind": "grille",
+   "status": "published",
+   "urls": [],
+   "story_urls": [
+    "https://kdlsbxrhdxxwuethmvpx.supabase.co/storage/v1/object/public/tdp-posts/grid/BT2627SWRLCP01MXSR/20261128110136_s_01.jpg"
+   ],
+   "caption": "",
+   "alts": [],
+   "created": "2026-11-28T12:01:34.073462+01:00",
+   "expires": "2026-11-28T13:10:00+01:00",
+   "files": [
+    "out/grid_BT2627SWRLCP01MXSR/s_01.jpg"
+   ],
+   "ig_story_ids": [
+    "18137841550708847"
+   ],
+   "published": "2026-11-28T12:01:34.073462+01:00"
   }
  },
  "tg_offset": 969544682,
