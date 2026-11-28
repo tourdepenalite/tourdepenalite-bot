@@ -174,7 +174,7 @@ def build(meta: dict, rows: list[dict]) -> dict:
     win = final[0]
     podium = [{"rank": a["rank"], "first": a["first"], "last": a["last"], "nat": a["nat"],
                "time": str(a["total"]).replace(".", ",") if a["rank"] == 1 else _gap(parse_time(a["total"]) - parse_time(win["total"])),
-               "shots": f"{5 * n - sum(a['misses'])}/{5 * n}"} for a in final[:3]]
+               "shots": f"{5 * n - sum(a['misses'])}/{5 * n} au tir"} for a in final[:3]]
     best_fr = next((a for a in final if a["nat"] == HOME), None)
     hooks = _hooks(meta, ath, final, positions, n, t0)
     return {
@@ -191,7 +191,7 @@ def build(meta: dict, rows: list[dict]) -> dict:
         "podium": [{**p, "flag": flag(p["nat"]), "fr": p["nat"] == HOME} for p in podium],
         "best_fr": ({"name": f"{best_fr['first']} {best_fr['last']}", "rank": o(best_fr["rank"])}
                     if best_fr and best_fr["rank"] > 3 else None),
-        "timing": {"hook": HOOK, "intro": INTRO, "stage": STAGE, "finish": FINISH, "outro": OUTRO},
+        "timing": {"hook": HOOK, "intro": INTRO, "stage": STAGE, "finish": FINISH, "outro": OUTRO, "spread": 2.1, "sd": 3.2},
     }
 
 
@@ -234,8 +234,139 @@ def _hooks(meta, ath, final, positions, n, t0) -> dict:
     return h
 
 
+# ---------------------------------------------------------------- relais
+
+RELAY_STAGE = 3.6   # secondes par tir (8 tirs en relais)
+
+
+def load_relay(client, race_id: str, laps: int = 12) -> dict:
+    """Resultats du relais (equipes et relayeurs) + temps par tour (LAPn) et de ski (CRSn) de chaque relayeur."""
+    res = client.results(race_id, cache_s=3600)
+    an = {}
+    for t in [f"LAP{i}" for i in range(1, laps + 1)] + [f"CRS{i}" for i in range(1, laps + 1)]:
+        try:
+            an[t] = {x.get("IBUId"): x.get("Result") or x.get("TotalTime") for x in client.analytic(race_id, t).get("Results") or []}
+        except Exception:
+            an[t] = {}
+    return {"rows": res.get("Results") or [], "an": an}
+
+
+def build_relay(meta: dict, raw: dict) -> dict:
+    """Chronologie d'un relais : 4 relayeurs x 2 tirs. A chaque tir : top 10 des nations a l'arrivee au pas de tir
+    + la France, tours de penalite (cibles rouges) et balles de pioche (+N)."""
+    from .templates import NAT_FR
+    rows, an = raw["rows"], raw["an"]
+    nlegs = 4
+    teams = {r["Nat"]: r for r in rows if r.get("IsTeam")}
+    legs = {}
+    for r in rows:
+        if not r.get("IsTeam") and r.get("Leg"):
+            legs.setdefault(r["Nat"], {})[int(r["Leg"])] = r
+    fem = meta.get("cat") == "SW"
+    stages_lbl, banners, tl = [], [], ["DÉPART"]
+    for leg in range(1, nlegs + 1):
+        for pos in ("COUCHÉ", "DEBOUT"):
+            stages_lbl.append(pos)
+            banners.append(f"RELAIS {leg} · {pos}")
+            tl.append(f"R{leg} {'C' if pos == 'COUCHÉ' else 'D'}")
+    tl.append("ARRIVÉE")
+    n = len(stages_lbl)
+    ath = []
+    for nat, team in teams.items():
+        lg = legs.get(nat) or {}
+        laps, crs, who, pen, spare = [], [], [], [], []
+        ok = True
+        for leg in range(1, nlegs + 1):
+            r = lg.get(leg)
+            if not r:
+                ok = False
+                break
+            ibu = r["IBUId"]
+            for j in range(1, 4):
+                g = (leg - 1) * 3 + j
+                laps.append(parse_time(an.get(f"LAP{g}", {}).get(ibu)))
+                crs.append(parse_time(an.get(f"CRS{g}", {}).get(ibu)))
+            sh = str(r.get("Shootings") or "").split()
+            for k in range(2):
+                a, _, b = (sh[k] if k < len(sh) else "0+0").partition("+")
+                pen.append(int(a) if a.strip().isdigit() else 0)
+                spare.append(int(b) if b.strip().isdigit() else 0)
+                who.append((r.get("FamilyName") or "").title())
+        if not ok:
+            continue
+        # tir k : fin du tour 1 ou 2 du relayeur ; arrivee = temps cumule avant ce tour + ski du tour
+        cum, arrive = [], []
+        for k in range(n):
+            g = (k // 2) * 3 + (k % 2)        # index (0-based) du tour termine par ce tir
+            if None in laps[: g + 1] or crs[g] is None:
+                break
+            cum.append(sum(laps[: g + 1]))
+            arrive.append(sum(laps[:g]) + crs[g])
+        if len(cum) < n:
+            continue                          # equipe doublee : pas de temps sur tous les tirs
+        rank = int(team["Rank"]) if str(team.get("Rank") or "").isdigit() else None
+        ath.append({"ibu": nat, "nat": nat, "name": NAT_FR.get(nat, nat), "rank": rank, "total": team.get("TotalTime"),
+                    "cum": cum, "arrive": arrive, "pen": pen, "spare": spare, "who": who})
+    if len(ath) < 3:
+        return {}
+    final = sorted([a for a in ath if a["rank"]], key=lambda a: a["rank"])
+    vis, at_pos, standings, prev = [], [], [], {}
+    for k in range(n):
+        order = sorted(ath, key=lambda a: a["arrive"][k])
+        at_pos.append({a["ibu"]: i + 1 for i, a in enumerate(order)})
+        v = order[:TOP_ROWS]
+        fr = next((a for a in order if a["nat"] == HOME), None)
+        if fr and fr not in v:
+            v.append(fr)
+        vis.append(v)
+        after = sorted(ath, key=lambda a: a["cum"][k])
+        lead = after[0]["cum"][k]
+        pos = {a["ibu"]: i + 1 for i, a in enumerate(after)}
+        top = [{"rank": i + 1, "last": a["name"], "nat": a["nat"], "gap": _gap(a["cum"][k] - lead),
+                "delta": (prev.get(a["ibu"], i + 1) - (i + 1)) if k else 0} for i, a in enumerate(after[:5])]
+        frp = next(((i + 1, a) for i, a in enumerate(after) if a["nat"] == HOME), None)
+        if frp and frp[0] > 5:
+            top.append({"rank": frp[0], "last": frp[1]["name"], "nat": HOME, "gap": _gap(frp[1]["cum"][k] - lead),
+                        "delta": (prev.get(HOME, frp[0]) - frp[0]) if k else 0})
+        standings.append(top)
+        prev = pos
+    focus = []
+    for v in vis:
+        focus += [a for a in v if a not in focus]
+    slots = [{a["ibu"]: i for i, a in enumerate(v)} for v in vis]
+    arr_rank = [{a["ibu"]: i for i, a in enumerate(sorted(v, key=lambda a: a["arrive"][k]))} for k, v in enumerate(vis)]
+    win = final[0]
+    o = ordinal_f
+    podium = []
+    for a in final[:3]:
+        sp, pl = sum(a["spare"]), sum(a["pen"])
+        podium.append({"rank": a["rank"], "first": "", "last": a["name"], "nat": a["nat"], "flag": flag(a["nat"]), "fr": a["nat"] == HOME,
+                       "time": str(a["total"]).replace(".", ",") if a is win else _gap(parse_time(a["total"]) - parse_time(win["total"])),
+                       "shots": f"{sp} pioche{'s' if sp > 1 else ''}" + (f" · {pl} tour{'s' if pl > 1 else ''}" if pl else "")})
+    fr = next((a for a in final if a["nat"] == HOME), None)
+    sp, pl = sum(win["spare"]), sum(win["pen"])
+    hook = {"last": win["name"], "flag": flag(win["nat"]), "big": f"{sp} pioche{'s' if sp > 1 else ''}",
+            "sub": "Aucun tour de pénalité" if not pl else f"{pl} tour{'s' if pl > 1 else ''} de pénalité",
+            "word": "VICTOIRE", "rewind": "Revivez la course"}
+    return {
+        "label": meta["label"], "site": meta["site"], "stages": stages_lbl, "fem": fem, "loops": [], "climb": None,
+        "tl_labels": tl, "banners": banners, "unit": "P",
+        "focus": [{"last": a["name"], "nat": a["nat"], "flag": flag(a["nat"]), "fr": a["nat"] == HOME,
+                   "misses": a["pen"], "spares": a["spare"], "count": a["spare"], "who": a["who"],
+                   "arr": [arr_rank[k].get(a["ibu"]) for k in range(n)], "nvis": [len(v) for v in vis],
+                   "pos": [at_pos[k][a["ibu"]] for k in range(n)], "slot": [slots[k].get(a["ibu"]) for k in range(n)],
+                   "rank": o(a["rank"]) if a["rank"] else ""} for a in focus],
+        "nrows": max(len(v) for v in vis),
+        "standings": [[{**x, "flag": flag(x["nat"]), "fr": x["nat"] == HOME} for x in st] for st in standings],
+        "podium": podium, "best_fr": ({"name": "France", "rank": o(fr["rank"])} if fr and fr["rank"] > 3 else None),
+        "hooks": {"vainqueur": hook}, "hook": "vainqueur",
+        "timing": {"hook": HOOK, "intro": INTRO, "stage": RELAY_STAGE, "finish": FINISH, "outro": OUTRO, "spread": 1.5, "sd": 2.5},
+    }
+
+
 def duration(data: dict) -> float:
-    return HOOK + INTRO + STAGE * len(data["stages"]) + FINISH + OUTRO
+    t = data["timing"]
+    return t["hook"] + t["intro"] + t["stage"] * len(data["stages"]) + t["finish"] + t["outro"]
 
 
 # ---------------------------------------------------------------- page animee
@@ -283,7 +414,7 @@ const D = {json.dumps(data, ensure_ascii=False)};
 const T = D.timing, N = D.stages.length;
 const clamp = (x, a=0, b=1) => Math.max(a, Math.min(b, x));
 const ease = x => 1 - Math.pow(1 - clamp(x), 3);
-const labels = ['DÉPART'].concat(D.stages.map((s, i) => 'TIR ' + (i + 1))).concat(['ARRIVÉE']);
+const labels = D.tl_labels || ['DÉPART'].concat(D.stages.map((s, i) => 'TIR ' + (i + 1))).concat(['ARRIVÉE']);
 const tl = document.getElementById('tl');
 const W = 1080 - 72 - 150 - 24;
 tl.innerHTML = "<div class='bar'></div><div class='fill' id='fill'></div>" + labels.map((l, i) => {{
@@ -292,7 +423,7 @@ tl.innerHTML = "<div class='bar'></div><div class='fill' id='fill'></div>" + lab
   return `<div class='st' style='left:${{x}}px'>${{l}}</div><div class='pt' id='pt${{i}}' style='left:${{x}}px'></div>${{km}}`; }}).join('');
 const rows = document.getElementById('rows');
 rows.innerHTML = D.focus.map((a, i) => `<div class='row' id='r${{i}}' style='top:600px;opacity:0'>
-  <span class='ps' id='p${{i}}' style='width:58px;font-size:24px;color:var(--grey);font-weight:900'></span><span style='font-size:30px'>${{a.flag}}</span><span class='nm' style='color:${{a.fr ? "var(--fr)" : "var(--ink)"}}'>${{a.last}}</span>
+  <span class='ps' id='p${{i}}' style='width:58px;font-size:24px;color:var(--grey);font-weight:900'></span><span style='font-size:30px'>${{a.flag}}</span><span class='nm' style='color:${{a.fr ? "var(--fr)" : "var(--ink)"}}'>${{a.last}} <span id='w${{i}}' style='font-size:19px;color:var(--grey);font-weight:700;text-transform:none'></span></span><span id='sp${{i}}' style='width:44px;text-align:center;font-size:20px;font-weight:900;color:#e8a400'></span>
   ${{[0,1,2,3,4].map(j => `<span class='tg' id='t${{i}}_${{j}}'></span>`).join('')}}<span class='cnt' id='c${{i}}'></span></div>`).join('');
 const SD_TOP = 590 + D.nrows * 49 + 18;
 function stageStart(k) {{ return T.intro + k * T.stage; }}
@@ -309,7 +440,7 @@ function drawHook(t) {{
     el.innerHTML = top + `<div style='position:absolute;top:470px;left:72px;right:150px;filter:${{rw ? 'blur(' + (t - 1.9) * 6 + 'px)' : 'none'}}'>
       <div style='font-size:60px;opacity:${{a(t / 0.3)}}'>${{H.flag}}</div>
       <div class='big' style='font-size:150px;margin-top:10px;transform:scale(${{0.8 + 0.2 * a(t / 0.35)}});transform-origin:left;opacity:${{a(t / 0.25)}}'>${{H.last}}</div>
-      <div class='big' style='font-size:230px;color:var(--flash);margin-top:30px;opacity:${{a((t - 0.45) / 0.3)}}'>${{H.big}}</div>
+      <div class='big' style='font-size:${{H.big.length > 6 ? 150 : 230}}px;color:var(--flash);margin-top:30px;opacity:${{a((t - 0.45) / 0.3)}}'>${{H.big}}</div>
       <div style='font-size:64px;font-weight:900;margin-top:30px;letter-spacing:.06em;opacity:${{a((t - 0.9) / 0.3)}}'>${{H.word}}</div>
       <div style='font-size:34px;font-weight:700;color:var(--grey);margin-top:14px;opacity:${{a((t - 1.1) / 0.3)}}'>${{H.sub}}</div></div>` +
       (rw ? `<div style='position:absolute;top:1300px;left:72px;right:150px;font-size:62px;font-weight:900;color:var(--flash);opacity:${{a((t - 1.9) / 0.2)}}'>⏪ ${{H.rewind}}</div>` : '');
@@ -369,7 +500,10 @@ function draw(t0) {{
     document.getElementById('p' + i).textContent = (mv >= 0.5 || kk === 0 ? a.pos[kk] : a.pos[kk - 1]) + 'e';
     const nf = a.nvis[kk];
     const on = cur != null;
-    const ts = on ? s0 + 0.9 + 2.1 * (a.arr[kk] / Math.max(1, nf - 1)) : 1e9;
+    const ts = on ? s0 + 0.9 + T.spread * (a.arr[kk] / Math.max(1, nf - 1)) : 1e9;
+    if (a.who) document.getElementById('w' + i).textContent = a.who[kk] || '';
+    const spEl = document.getElementById('sp' + i);
+    spEl.textContent = (a.spares && inStages && on && t >= ts + 0.9 && a.spares[kk]) ? '+' + a.spares[kk] : '';
     const shooting = inStages && on && t >= ts && t < ts + 1.0;
     r.style.background = shooting ? 'var(--lead-bg)' : (a.fr ? 'var(--fr-bg)' : 'var(--row)');
     const miss = a.misses[kk];
@@ -379,10 +513,11 @@ function draw(t0) {{
       el.className = 'tg' + (done ? (j >= 5 - miss ? ' miss' : ' hit') : '');
     }}
     let tot = 0;
-    for (let q = 0; q < kk; q++) tot += a.misses[q];
-    if (inStages && on && t >= ts + 0.9) tot += a.misses[kk];
+    const cntv = a.count || a.misses;
+    for (let q = 0; q < kk; q++) tot += cntv[q];
+    if (inStages && on && t >= ts + 0.9) tot += cntv[kk];
     const c = document.getElementById('c' + i);
-    c.textContent = t >= T.intro ? tot + ' F' : '';
+    c.textContent = t >= T.intro ? tot + ' ' + (D.unit || 'F') : '';
     c.style.color = tot ? 'var(--flash)' : 'var(--muted)';
   }});
   // bandeau TIR k
@@ -390,13 +525,13 @@ function draw(t0) {{
   const bt = (t - s0) / 0.9;
   b.style.opacity = inStages && bt >= 0 && bt < 1 ? (bt < 0.2 ? bt / 0.2 : bt > 0.75 ? (1 - bt) / 0.25 : 1) : 0;
   b.style.transform = `scale(${{0.9 + 0.1 * ease(bt / 0.3)}})`;
-  b.firstChild.textContent = `TIR ${{k + 1}} · ${{D.stages[k]}}`;
+  b.firstChild.textContent = D.banners ? D.banners[k] : `TIR ${{k + 1}} · ${{D.stages[k]}}`;
   // classement apres le tir k
   const sds = document.getElementById('sds');
-  const sk = t >= s0 + 3.2 ? k : k - 1;
+  const sk = t >= s0 + T.sd ? k : k - 1;
   if (sk >= 0 && inStages) {{
-    const st = D.standings[sk], since = t - (sk === k ? s0 + 3.2 : stageStart(k));
-    sds.innerHTML = `<div style='position:absolute;top:${{SD_TOP}}px;left:72px;font-size:24px;font-weight:800;letter-spacing:.1em;color:var(--grey)'>CLASSEMENT APRÈS LE TIR ${{sk + 1}}</div>` +
+    const st = D.standings[sk], since = t - (sk === k ? s0 + T.sd : stageStart(k));
+    sds.innerHTML = `<div style='position:absolute;top:${{SD_TOP}}px;left:72px;font-size:24px;font-weight:800;letter-spacing:.1em;color:var(--grey)'>CLASSEMENT APRÈS ${{D.banners ? D.banners[sk] : 'LE TIR ' + (sk + 1)}}</div>` +
       st.map((s, i) => {{
         const a = sk === k ? ease((since - i * 0.08) / 0.35) : 1;
         const d = s.delta > 0 ? `<span style='color:var(--up)'>▲${{s.delta}}</span>` : s.delta < 0 ? `<span style='color:var(--flash)'>▼${{-s.delta}}</span>` : '';
@@ -417,7 +552,7 @@ function draw(t0) {{
           <span style='font-size:44px'>${{p.flag}}</span>
           <div style='flex:1;margin-left:20px'><div style='font-size:28px;color:var(--grey);font-weight:600'>${{p.first}}</div>
           <div style='font-size:${{big ? 52 : 44}}px;font-weight:900;line-height:1;text-transform:uppercase;color:${{p.fr ? "var(--fr)" : "var(--ink)"}}'>${{p.last}}</div></div>
-          <div style='text-align:right'><div style='font-size:36px;font-weight:900'>${{p.time}}</div><div style='font-size:24px;color:var(--grey);font-weight:700'>${{p.shots}} au tir</div></div></div>`; }}).join('') +
+          <div style='text-align:right'><div style='font-size:36px;font-weight:900'>${{p.time}}</div><div style='font-size:24px;color:var(--grey);font-weight:700'>${{p.shots}}</div></div></div>`; }}).join('') +
       (D.best_fr ? `<div style='position:absolute;top:1280px;left:72px;right:150px;font-size:32px;font-weight:800;color:var(--fr);opacity:${{ease((ft - 1.8) / 0.4)}}'>🇫🇷 ${{D.fem ? 'Meilleure Française' : 'Meilleur Français'}} : ${{D.best_fr.name}}, ${{D.best_fr.rank}}</div>` : '');
   }} else f.innerHTML = '';
   // fin
